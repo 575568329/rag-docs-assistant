@@ -120,6 +120,41 @@ Embedding  → 只管文本→向量转换
 
 ---
 
+## 5. fetch 响应判断
+
+```typescript
+const res = await fetch('/api/kb')
+
+// 错误：res 永远是 truthy（fetch 只有网络错误才 reject）
+if (res) { ... }
+
+// 正确：用 res.ok 判断 HTTP 状态码是否 2xx
+if (res.ok) { ... }
+
+// 或者用状态码
+if (res.status === 200) { ... }
+```
+
+**原则**：`fetch` 返回的 Response 对象始终存在，即使服务器返回 404/500。用 `res.ok` 或 `res.status` 判断。
+
+---
+
+## 6. API Route 校验顺序
+
+```typescript
+// 错误：先做耗时操作再校验（浪费 API 调用）
+const vectors = await getEmbedding(chunks)  // 耗时！
+if (!kb) return error                       // 发现知识库不存在，白费了
+
+// 正确：先校验再处理（卫语句思想）
+if (!kb) return error
+const vectors = await getEmbedding(chunks)  // 校验通过才执行
+```
+
+**原则**：校验前置，尽早返回，避免无效的耗时操作。
+
+---
+
 ## 待补充
 
 后续学习中发现新的薄弱点会持续更新到本文档。

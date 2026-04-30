@@ -1,4 +1,4 @@
-export async function getEmbedding(texts:string) {
+export async function getEmbedding(texts:string[]) {
   const apiKey = process.env.ZHIPU_API_KEY
   try {
     const response = await fetch('https://open.bigmodel.cn/api/paas/v4/embeddings', {
@@ -13,8 +13,8 @@ export async function getEmbedding(texts:string) {
       })
     })
     const data = await response.json()
-    if (data && data.data && data.data[0]) {
-      return data.data[0].embedding||[]
+    if (data && data.data && data.data.length) {
+      return data.data.map((item: { embedding?: number[] }) => item.embedding || [])
     }else{
       throw new Error('Embedding API 调用失败')
     }
