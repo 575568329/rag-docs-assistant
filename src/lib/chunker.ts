@@ -1,18 +1,91 @@
-/*
- * @Author: fjyu9 fjyu9@iflytek.com
- * @Date: 2026-04-30 11:04:56
- * @LastEditors: fjyu9 fjyu9@iflytek.com
- * @LastEditTime: 2026-04-30 11:13:38
- * @FilePath: \rag-docs-assistant\src\lib\chunker.ts
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+/**
+ * 文档切片模块
+ *
+ * 将长文本按 Markdown 标题分段，再对大段落按固定大小切片。
+ * 每个切片都会携带其所属标题，保留上下文语义。
  */
-export function chunkText(text:string,chunkSize:number,overlap:number){
-  const chunk = []
-  if (text&&text.length) {
+
+/** 文档标题 + 内容段落 */
+interface Section {
+  heading: string
+  content: string
+}
+
+/**
+ * 按标题分段 + 固定大小切片
+ *
+ * 策略：
+ * 1. 先按 Markdown 标题（# ~ ######）将文档拆为多个段落
+ * 2. 小段落（≤ chunkSize）直接作为一个切片
+ * 3. 大段落按 chunkSize 切片，相邻切片间有 overlap 字符重叠
+ * 4. 所有切片都拼接上所属标题，保持语义完整
+ *
+ * @param text      原始文档文本
+ * @param chunkSize 每个切片的最大字符数
+ * @param overlap   相邻切片的重叠字符数
+ * @returns 切片数组
+ */
+export function chunkText(text: string, chunkSize: number, overlap: number): string[] {
+  const chunks: string[] = []
+  if (!text || !text.length) return chunks
+
+  const sections = splitByHeadings(text)
+
+  for (const section of sections) {
+    // 小段落直接整段作为一个切片
+    if (section.content.length <= chunkSize) {
+      chunks.push(withHeading(section))
+      continue
+    }
+
+    // 大段落按固定大小切片，每段都带标题
     const step = Math.max(chunkSize - overlap, 1)
-    for (let index = 0; index < text.length; index += step) {
-      chunk.push(text.slice(index,index + chunkSize)) 
+    for (let i = 0; i < section.content.length; i += step) {
+      const slice = section.content.slice(i, i + chunkSize)
+      chunks.push(withHeading({ heading: section.heading, content: slice }))
     }
   }
-  return chunk
+
+  return chunks
+}
+
+/** 拼接标题和内容 */
+function withHeading(section: Section): string {
+  return section.heading
+    ? `${section.heading}\n${section.content}`
+    : section.content
+}
+
+/**
+ * 按 Markdown 标题拆分文档
+ *
+ * 遇到 # ~ ###### 开头的行视为新段落开始，
+ * 将之前累积的内容保存为一个 section。
+ */
+function splitByHeadings(text: string): Section[] {
+  const lines = text.split('\n')
+  const sections: Section[] = []
+
+  let currentHeading = ''
+  let currentContent: string[] = []
+
+  for (const line of lines) {
+    if (/^#{1,6}\s+/.test(line)) {
+      // 遇到新标题，先保存上一段
+      if (currentContent.length) {
+        sections.push({ heading: currentHeading, content: currentContent.join('\n') })
+      }
+      currentHeading = line
+      currentContent = []
+    } else {
+      currentContent.push(line)
+    }
+  }
+
+  // 保存最后一段
+  if (currentContent.length) {
+    sections.push({ heading: currentHeading, content: currentContent.join('\n') })
+  }
+
+  return sections
 }

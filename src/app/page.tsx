@@ -2,27 +2,25 @@
 
 import { useEffect, useState } from 'react'
 import type { KnowledgeBase } from '@/lib/types'
+import ChatPanel from '@/components/ChatPanel'
 
 export default function Home() {
   const [list, setList] = useState<KnowledgeBase[]>([])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [activeKbId, setActiveKbId] = useState<string | null>(null)
 
   async function getList() {
     const res = await fetch('/api/kb')
     setList(await res.json())
   }
 
-  // TODO: 你来实现创建知识库
   async function handleCreate() {
-    // 1. fetch POST /api/kb，传 { name, description }
-    // 2. 成功后清空表单、关闭弹窗、刷新列表
-    const params = {name,description}
-    const res = await fetch('/api/kb',{
-      method:'POST',
+    const res = await fetch('/api/kb', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify({ name, description })
     })
     if (res.ok) {
       setName('')
@@ -32,22 +30,28 @@ export default function Home() {
     }
   }
 
-  // TODO: 你来实现删除知识库
   async function handleDelete(id: string) {
-    // 1. fetch DELETE /api/kb/${id}
-    // 2. 成功后刷新列表
-    const res = await fetch(`/api/kb/${id}`,{
-      method:'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-    })
+    const res = await fetch(`/api/kb/${id}`, { method: 'DELETE' })
+    if (res.ok) getList()
+  }
+
+  async function handleUpload(id: string, file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`/api/kb/${id}/upload`, { method: 'POST', body: formData })
     if (res.ok) {
+      alert('上传成功')
       getList()
+    } else {
+      alert('上传失败')
     }
   }
 
-  useEffect(() => {
-    getList()
-  }, [])
+  useEffect(() => { getList() }, [])
+
+  if (activeKbId) {
+    return <ChatPanel kbId={activeKbId} onBack={() => setActiveKbId(null)} />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -88,7 +92,11 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {list.map(kb => (
-            <div key={kb.id} className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+            <div
+              key={kb.id}
+              className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setActiveKbId(kb.id)}
+            >
               <h2 className="text-lg font-semibold text-gray-900">{kb.name}</h2>
               <p className="text-sm text-gray-500 mt-1">{kb.description || '暂无描述'}</p>
               <div className="flex justify-between items-center mt-3 text-sm text-gray-400">
@@ -97,10 +105,26 @@ export default function Home() {
               </div>
               <div className="mt-3 flex gap-2">
                 <button className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
-                  查看详情
+                  开始对话
                 </button>
+                <label
+                  className="px-3 py-1 text-sm bg-green-50 text-green-600 rounded hover:bg-green-100 cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  上传文档
+                  <input
+                    type="file"
+                    accept=".txt,.md"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleUpload(kb.id, file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
                 <button
-                  onClick={() => handleDelete(kb.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(kb.id) }}
                   className="px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100"
                 >
                   删除
