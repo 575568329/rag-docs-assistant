@@ -2,22 +2,33 @@
  * RAG 对话接口
  *
  * 流程：用户提问 → 向量化 → 相似度搜索 → 注入上下文 → LLM 流式回答
+ * 支持来源追溯：搜索结果的元数据（文件名、标题、分数）通过 messageMetadata 传递给前端
  *
  * 请求体：{ messages: UIMessage[], kbId: string }
- * 响应：SSE 流式文本（UI Message Stream）
+ * 响应：SSE 流式文本（UI Message Stream），附带 sources 元数据
  */
 
 import { getVectorStore } from '@/lib/vector-store/index'
+import { FileStore } from '@/lib/vector-store/file-store'
 import { getEmbedding } from '@/lib/embedding'
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText } from 'ai'
+import { streamText, UIMessage } from 'ai'
 import { logger } from '@/lib/logger'
+import type { SourceRef } from '@/lib/types'
 
 /** 相似度最低阈值，低于此分数视为不相关 */
 const MIN_RELEVANCE_SCORE = 0.45
 
 /** 搜索返回的最大结果数 */
 const TOP_K = 5
+
+/** 自定义消息元数据类型（用于来源追溯） */
+type ChatMetadata = {
+  sources?: SourceRef[]
+}
+
+/** 自定义 UIMessage 类型（携带来源元数据） */
+export type ChatUIMessage = UIMessage<ChatMetadata>
 
 interface ChatRequest {
   messages: { role: string; content: string }[]
@@ -38,30 +49,53 @@ export async function POST(request: Request) {
     logger.info('对话请求', { kbId, query: userQuery, historyCount: messages.length - 1 })
 
     // Step 1: 将用户问题向量化
-    const [queryVector] = await getEmbedding([userQuery])
+    const searchQuery = buildSearchQuery(messages)
+    const [queryVector] = await getEmbedding([searchQuery])
 
-    // Step 2: 在向量库中搜索相似文档
+    // Step 2: 混合检索（向量 + 关键词），FileStore 支持混合搜索
     const vectorStore = getVectorStore()
-    const searchResults = await vectorStore.similaritySearch(`kb-${kbId}`, queryVector, TOP_K)
-    logger.info('相似度搜索结果', {
+    const collectionName = `kb-${kbId}`
+    const isHybrid = vectorStore instanceof FileStore
+    const searchResults = isHybrid
+      ? await vectorStore.hybridSearch(collectionName, queryVector, userQuery, TOP_K)
+      : await vectorStore.similaritySearch(collectionName, queryVector, TOP_K)
+    logger.info('搜索结果', {
       kbId,
+      mode: isHybrid ? 'hybrid' : 'vector',
       hits: searchResults.length,
       topScore: searchResults[0]?.score,
-      results: searchResults.map((r, i) => ({ index: i + 1, score: r.score, content: r.content?.slice(0, 200) })),
+      results: searchResults.map((r, i) => ({
+        index: i + 1,
+        score: r.score,
+        source: r.metadata?.filename ?? '未知',
+        content: r.content?.slice(0, 200),
+      })),
     })
 
     // Step 3: 过滤低相关性结果，构建上下文
-    const relevantResults = searchResults.filter(r => (r.score ?? 0) >= MIN_RELEVANCE_SCORE)
+    // 混合搜索的 RRF 分数范围与余弦相似度不同，不做阈值过滤，直接使用 top-K 结果
+    const relevantResults = isHybrid
+      ? searchResults
+      : searchResults.filter(r => (r.score ?? 0) >= MIN_RELEVANCE_SCORE)
     const hasRelevantContext = relevantResults.length > 0
-    const context = (hasRelevantContext ? relevantResults : searchResults)
+    const usedResults = hasRelevantContext ? relevantResults : searchResults
+    const context = usedResults
       .map((r, i) => `[${i + 1}] ${r.content}`)
       .join('\n')
+
+    // 构建来源引用列表（与上下文编号一一对应）
+    const sources: SourceRef[] = usedResults.map((r, i) => ({
+      index: i + 1,
+      filename: r.metadata?.filename ?? '未知文档',
+      heading: r.metadata?.heading ?? '未知章节',
+      score: r.score ?? 0,
+    }))
 
     logger.info('注入上下文', {
       kbId,
       relevant: relevantResults.length,
+      sourceCount: sources.length,
       contextLength: context.length,
-      context: context.slice(0, 500),
     })
 
     // Step 4: 调用 LLM 流式生成回答
@@ -79,11 +113,41 @@ export async function POST(request: Request) {
       },
     })
 
-    return result.toUIMessageStreamResponse()
+    // Step 5: 通过 messageMetadata 将来源信息传递给前端
+    return result.toUIMessageStreamResponse({
+      messageMetadata: ({ part }) => {
+        if (part.type === 'finish') {
+          return { sources }
+        }
+      },
+    })
   } catch (error) {
     logger.error('对话失败', { error: String(error) })
     return new Response('对话失败', { status: 500 })
   }
+}
+
+/**
+ * 构建用于检索的搜索查询
+ *
+ * 多轮对话优化：如果有历史消息，将最近的上下文与当前查询拼接，
+ * 使后续追问（如"详细说说"）也能匹配到正确的文档。
+ */
+function buildSearchQuery(messages: { role: string; content: string }[]): string {
+  const currentQuery = messages[messages.length - 1].content
+
+  // 无历史上下文，直接使用当前问题
+  if (messages.length <= 1) return currentQuery
+
+  // 取最近 2 轮对话（最多 4 条历史消息）作为上下文
+  const recentHistory = messages.slice(-5, -1)
+  const contextStr = recentHistory
+    .map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`)
+    .join('\n')
+
+  // 拼接上下文 + 当前问题，截断避免稀释 embedding
+  const combined = `${contextStr}\n用户: ${currentQuery}`
+  return combined.length > 500 ? combined.slice(-500) : combined
 }
 
 /**

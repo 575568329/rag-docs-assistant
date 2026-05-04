@@ -7,7 +7,7 @@
  * 响应：{ success: true } 或 { error: string }
  */
 
-import { chunkText } from '@/lib/chunker'
+import { chunkTextWithMetadata } from '@/lib/chunker'
 import { getEmbedding } from '@/lib/embedding'
 import { getVectorStore } from '@/lib/vector-store/index'
 import { NextResponse } from 'next/server'
@@ -41,15 +41,17 @@ export async function POST(
 
     // Step 4: 文本切片（按标题分段 + 固定大小，chunkSize=1000 保证上下文完整）
     const text = await file.text()
-    const chunks = chunkText(text, 1000, 100)
+    const chunkResults = chunkTextWithMetadata(text, 1000, 100, file.name)
+    const chunks = chunkResults.map(c => c.text)
+    const metas = chunkResults.map(c => c.metadata)
 
     // Step 5: 批量向量化
     const vectors = await getEmbedding(chunks)
     const ids = chunks.map((_, i) => `kb${kbId}-chunk-${Date.now()}-${i}`)
 
-    // Step 6: 存入向量库
+    // Step 6: 存入向量库（含来源元数据）
     const vectorStore = getVectorStore()
-    await vectorStore.addVectors(`kb-${kbId}`, vectors, chunks, ids)
+    await vectorStore.addVectors(`kb-${kbId}`, vectors, chunks, ids, metas)
 
     // Step 7: 记录文档元数据（含 chunkIds，用于后续删除）
     db.addDoc(kbId, file.name, chunks.length, ids)
