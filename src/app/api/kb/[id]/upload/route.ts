@@ -51,8 +51,8 @@ export async function POST(
     const vectorStore = getVectorStore()
     await vectorStore.addVectors(`kb-${kbId}`, vectors, chunks, ids)
 
-    // Step 7: 记录文档元数据
-    db.addDoc(kbId, file.name, chunks.length)
+    // Step 7: 记录文档元数据（含 chunkIds，用于后续删除）
+    db.addDoc(kbId, file.name, chunks.length, ids)
 
     logger.info('文档上传成功', { kbId, filename: file.name, chunks: chunks.length })
     return NextResponse.json({ success: true })

@@ -2,6 +2,7 @@
 import { useChat } from '@ai-sdk/react'
 import { useState } from 'react'
 import { DefaultChatTransport } from 'ai'
+import Markdown from 'react-markdown'
 
 export default function ChatPanel({ kbId, onBack }: { kbId: string; onBack: () => void }) {
   const { messages, sendMessage, status, stop, regenerate } = useChat({
@@ -43,7 +44,7 @@ export default function ChatPanel({ kbId, onBack }: { kbId: string; onBack: () =
               <div className={`inline-block px-4 py-2 rounded-lg max-w-[80%] ${
                 m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
               }`}>
-                {text}
+                <Markdown>{text}</Markdown>
               </div>
               {m.role === 'assistant' && status === 'ready' && (
                 <button

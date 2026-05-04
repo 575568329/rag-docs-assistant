@@ -84,6 +84,36 @@ export class FileStore implements VectorStore {
     saveAll(all)
   }
 
+  /**
+   * 删除集合中指定的向量（按 ID 精确匹配）
+   *
+   * 思路：用 Set 快速查找要删除的 ID，收集保留项的下标，然后重建三个平行数组
+   * @param collectionName 集合名（格式：kb-{kbId}）
+   * @param ids            要删除的向量 ID 列表
+   */
+  async removeVectors(collectionName: string, ids: string[]): Promise<void> {
+    const all = loadAll()
+    const collection = all[collectionName]
+    if (!collection) return
+
+    // 用 Set 提升 ID 查找性能
+    const removeSet = new Set(ids)
+
+    // 收集不需要删除的下标
+    const keepIndices: number[] = []
+    for (let i = 0; i < collection.ids.length; i++) {
+      if (!removeSet.has(collection.ids[i])) {
+        keepIndices.push(i)
+      }
+    }
+
+    // 按保留下标重建三个平行数组（ids / texts / vectors 一一对应）
+    collection.ids = keepIndices.map(i => collection.ids[i])
+    collection.texts = keepIndices.map(i => collection.texts[i])
+    collection.vectors = keepIndices.map(i => collection.vectors[i])
+    saveAll(all)
+  }
+
   /** 统计指定集合的向量数量 */
   async count(collectionName: string): Promise<number> {
     const all = loadAll()

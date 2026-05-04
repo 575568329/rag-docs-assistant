@@ -89,7 +89,7 @@ export const db = {
   },
 
   /** 添加文档记录 */
-  addDoc(kbId: string, filename: string, chunkCount: number): Document {
+  addDoc(kbId: string, filename: string, chunkCount: number, chunkIds?: string[]): Document {
     const data = loadDB()
     const doc: Document = {
       id: 'doc_' + data.documentsId,
@@ -97,6 +97,7 @@ export const db = {
       filename,
       chunkCount,
       uploadedAt: new Date().toLocaleDateString(),
+      chunkIds,
     }
     data.documents.push(doc)
     data.documentsId++
@@ -109,5 +110,18 @@ export const db = {
     const data = loadDB()
     data.documents = data.documents.filter(doc => doc.kbId !== kbId)
     saveDB(data)
+  },
+
+  /**
+   * 删除单个文档记录并返回被删除的文档对象
+   * 返回值用于获取 chunkIds，以便同步清理向量数据
+   */
+  deleteDoc(docId: string): Document | null {
+    const data = loadDB()
+    const idx = data.documents.findIndex(doc => doc.id === docId)
+    if (idx === -1) return null
+    const [doc] = data.documents.splice(idx, 1)
+    saveDB(data)
+    return doc
   },
 }

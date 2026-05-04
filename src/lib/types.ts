@@ -12,4 +12,5 @@ export interface Document {
   filename: string
   chunkCount: number
   uploadedAt: string
+  chunkIds?: string[]
 }
