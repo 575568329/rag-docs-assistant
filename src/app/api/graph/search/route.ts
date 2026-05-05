@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getGraphStore } from '@/lib/graph-store'
+import { logger, startTimer } from '@/lib/logger'
 
 interface SearchParams {
   kbId?: string
@@ -24,6 +25,7 @@ interface SearchResultItem {
 }
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const { searchParams } = new URL(request.url)
     const kbId = searchParams.get('kbId') ?? undefined
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') ?? '20', 10)
 
     if (!query) {
+      logger.warn('图谱搜索参数错误', { kbId, reason: '缺少 query 参数' })
       return NextResponse.json({ error: '缺少 query 参数' }, { status: 400 })
     }
 
@@ -52,12 +55,13 @@ export async function GET(request: NextRequest) {
     // 按 limit 截取
     const limited = results.slice(0, limit)
 
+    logger.info('图谱搜索', { kbId, query, matchedCount: results.length, returnedCount: limited.length, ...timer() })
     return NextResponse.json({
       results: limited,
       total: results.length,
     })
   } catch (error) {
-    console.error('图谱搜索失败:', error)
+    logger.error('图谱搜索失败', { error: error instanceof Error ? error.message : String(error), ...timer() })
     return NextResponse.json(
       { error: '图谱搜索失败', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

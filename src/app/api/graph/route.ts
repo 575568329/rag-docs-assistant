@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getGraphStore } from '@/lib/graph-store'
+import { logger, startTimer } from '@/lib/logger'
 
 interface QueryParams {
   kbId?: string
@@ -18,6 +19,7 @@ interface QueryParams {
 }
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const { searchParams } = new URL(request.url)
     const kbId = searchParams.get('kbId') ?? undefined
@@ -32,6 +34,7 @@ export async function GET(request: NextRequest) {
       const matchedNodes = store.searchNodes(query, kbId)
 
       if (matchedNodes.length === 0) {
+        logger.info('图谱query搜索: 无匹配节点', { kbId, query, ...timer() })
         return NextResponse.json({
           nodes: [],
           edges: [],
@@ -42,6 +45,7 @@ export async function GET(request: NextRequest) {
       // 获取第一个匹配节点的邻域
       const { nodes, edges } = store.getNeighborhood(matchedNodes[0].id, parseInt(depth, 10), kbId)
 
+      logger.info('图谱query搜索', { kbId, query, matchedCount: matchedNodes.length, nodeCount: nodes.length, edgeCount: edges.length, ...timer() })
       return NextResponse.json({
         nodes,
         edges,
@@ -53,6 +57,7 @@ export async function GET(request: NextRequest) {
     if (nodeId) {
       const { nodes, edges } = store.getNeighborhood(nodeId, parseInt(depth, 10), kbId)
 
+      logger.info('图谱nodeId邻域', { kbId, nodeId, depth, nodeCount: nodes.length, edgeCount: edges.length, ...timer() })
       return NextResponse.json({
         nodes,
         edges,
@@ -62,9 +67,10 @@ export async function GET(request: NextRequest) {
 
     // 模式 3: 返回全部图谱概览
     const snapshot = store.getGraphSnapshot(kbId)
+    logger.info('图谱概览', { kbId, nodeCount: snapshot.nodes?.length ?? 0, edgeCount: snapshot.edges?.length ?? 0, ...timer() })
     return NextResponse.json(snapshot)
   } catch (error) {
-    console.error('图谱查询失败:', error)
+    logger.error('图谱查询失败', { error: error instanceof Error ? error.message : String(error), ...timer() })
     return NextResponse.json(
       { error: '图谱查询失败', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
