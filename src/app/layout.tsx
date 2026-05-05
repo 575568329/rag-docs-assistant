@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RAG 知识库问答系统",
-  description: "基于 RAG 架构的 AI 知识库问答系统，支持文档上传、智能问答与来源追溯",
+  title: "智能知识管理平台",
+  description: "基于 RAG + GraphRAG 的 AI 知识库平台，支持智能问答、文档管理与知识图谱",
 };
 
 export default function RootLayout({

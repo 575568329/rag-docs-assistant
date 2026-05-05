@@ -43,3 +43,22 @@ export interface SourceRef {
   /** 相似度分数 */
   score: number
 }
+
+/** 对话记录（摘要，不含完整消息） */
+export interface Conversation {
+  id: string
+  title: string
+  kbId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 图谱节点收藏 */
+export interface Favorite {
+  id: string
+  nodeId: string
+  nodeLabel: string
+  nodeType: string
+  kbId: string | null
+  createdAt: string
+}
