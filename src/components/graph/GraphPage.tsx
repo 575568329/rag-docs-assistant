@@ -46,6 +46,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
   const [loading, setLoading] = useState(false)
   const [overviewLoaded, setOverviewLoaded] = useState(false)
   const [favoritedNodes, setFavoritedNodes] = useState<Set<string>>(new Set())
+  const [kbName, setKbName] = useState<string | null>(null)
 
   // 组件挂载时自动加载概览 + 已收藏节点
   useEffect(() => {
@@ -53,6 +54,18 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
       loadNodeNeighborhood(focusEntityId)
     } else if (kbId) {
       loadOverview()
+    }
+    // 获取知识库名称（用于状态栏展示）
+    if (kbId) {
+      fetch('/api/kb')
+        .then(res => res.json())
+        .then((list: { id: string; name: string }[]) => {
+          const match = list.find(kb => kb.id === kbId)
+          setKbName(match?.name || null)
+        })
+        .catch(() => {})
+    } else {
+      setKbName(null)
     }
     // 加载已收藏节点 ID
     const params = new URLSearchParams()
@@ -233,6 +246,24 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
         >
           重置概览
         </button>
+      )}
+
+      {/* 状态栏：知识库名称 + 节点/关系数 */}
+      {overviewLoaded && graphData.nodes.length > 0 && (
+        <div className="absolute top-20 left-4 z-10 px-3 py-1.5 text-xs text-gray-500 bg-white/90 border border-gray-200 rounded-lg backdrop-blur-sm">
+          {kbName && <span className="font-medium text-gray-700">{kbName}</span>}
+          {kbName && <span className="mx-1.5">·</span>}
+          <span>{graphData.nodes.length} 节点</span>
+          <span className="mx-1.5">·</span>
+          <span>{graphData.links.length} 关系</span>
+        </div>
+      )}
+
+      {/* 单节点提示 */}
+      {overviewLoaded && graphData.nodes.length > 0 && graphData.links.length === 0 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 max-w-md px-4 py-2.5 text-xs text-gray-500 bg-white/90 border border-gray-200 rounded-lg backdrop-blur-sm text-center">
+          当前知识库仅识别到少量节点。上传更多文档或完成实体抽取后会形成关系网络。
+        </div>
       )}
 
       {selectedNode && (

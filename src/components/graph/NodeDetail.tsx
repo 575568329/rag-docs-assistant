@@ -16,11 +16,11 @@ export default function NodeDetail({ node, edges, onExpand, onClose, onFavorite,
   const config = useMemo(() => getEntityConfig(node.type), [node.type])
 
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-2xl overflow-y-auto transform transition-transform">
+    <div className="absolute right-0 top-0 bottom-0 w-80 max-md:left-4 max-md:right-4 max-md:top-auto max-md:bottom-4 max-md:w-auto max-md:max-h-[60vh] bg-white border border-gray-200 shadow-lg overflow-y-auto transform transition-transform">
       <div className="p-6">
         <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">{node.label}</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2 break-words">{node.label}</h2>
             <span
               className="inline-block px-3 py-1 rounded-full text-sm font-medium text-white"
               style={{ backgroundColor: config.color }}
@@ -60,7 +60,7 @@ export default function NodeDetail({ node, edges, onExpand, onClose, onFavorite,
                 {Object.entries(node.properties).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-start py-2 border-b border-gray-100">
                     <dt className="text-sm font-medium text-gray-600">{key}</dt>
-                    <dd className="text-sm text-gray-900 text-right ml-4">{String(value)}</dd>
+                    <dd className="text-sm text-gray-900 text-right ml-4 break-words">{String(value)}</dd>
                   </div>
                 ))}
               </dl>

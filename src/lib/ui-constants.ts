@@ -61,3 +61,26 @@ export const ENTITY_CONFIG: Record<EntityType, {
 export function getEntityConfig(type: string) {
   return ENTITY_CONFIG[type as EntityType] ?? ENTITY_CONFIG.Concept
 }
+
+/* ------------------------------------------------------------------ */
+/*  统一 UI 样式常量                                                   */
+/*  所有前端组件引用此对象，保持视觉一致。不引入额外依赖。               */
+/* ------------------------------------------------------------------ */
+export const ui = {
+  button: {
+    primary:
+      'px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors',
+    secondary:
+      'px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors',
+    danger:
+      'px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors',
+    icon: 'w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors',
+  },
+  input:
+    'w-full px-3 py-2 text-sm border border-gray-200 bg-white rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors placeholder:text-gray-400',
+  card: 'bg-white border border-gray-200 rounded-lg p-4',
+  panel:
+    'bg-white border border-gray-200 rounded-lg shadow-lg',
+  dialogOverlay: 'fixed inset-0 bg-black/30 flex items-center justify-center z-50',
+  dialogPanel: 'bg-white border border-gray-200 rounded-lg shadow-lg p-6 w-full max-w-md',
+} as const

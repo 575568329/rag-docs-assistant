@@ -36,7 +36,17 @@ export async function POST(
 
     // Step 2: 读取并校验文件
     const formData = await request.formData()
-    const file = formData.get('file') as File
+    const fileEntry = formData.get('file')
+    if (!(fileEntry instanceof File)) {
+      logger.error('上传失败: 未提供文件', { kbId })
+      return NextResponse.json({ error: '请上传文件' }, { status: 400 })
+    }
+
+    const file = fileEntry
+    if (!file.name || file.size === 0) {
+      logger.error('上传失败: 文件为空', { kbId, filename: file.name, size: file.size })
+      return NextResponse.json({ error: '文件不能为空' }, { status: 400 })
+    }
 
     // 文件大小校验（10MB）
     const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -60,6 +70,11 @@ export async function POST(
 
     // Step 5: 文本切片（按标题分段 + 固定大小，chunkSize=1000 保证上下文完整）
     const chunkResults = chunkTextWithMetadata(text, 1000, 100, file.name)
+    if (chunkResults.length === 0) {
+      logger.error('上传失败: 未解析到有效文本', { kbId, filename: file.name })
+      return NextResponse.json({ error: '未解析到有效文本内容' }, { status: 400 })
+    }
+
     const chunks = chunkResults.map(c => c.text)
     const metas = chunkResults.map(c => c.metadata)
 

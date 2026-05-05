@@ -22,6 +22,13 @@ interface ChatPageProps {
   onBack?: () => void
 }
 
+/** 知识库摘要（仅用于底部展示） */
+interface KbSummary {
+  id: string
+  name: string
+  docCount: number
+}
+
 /** 示例问题 */
 const EXAMPLE_QUESTIONS = [
   '这个项目的技术栈是什么？',
@@ -37,6 +44,19 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
       body: { kbId: kbId || '' }
     })
   })
+
+  const [kbSummary, setKbSummary] = useState<KbSummary | null>(null)
+
+  /** 获取知识库列表用于底部摘要展示 */
+  useEffect(() => {
+    fetch('/api/kb')
+      .then(res => res.json())
+      .then((list: KbSummary[]) => {
+        const match = kbId ? list.find(kb => kb.id === kbId) : null
+        setKbSummary(match || null)
+      })
+      .catch(() => {})
+  }, [kbId])
 
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -118,7 +138,7 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
                   <button
                     key={idx}
                     onClick={() => handleExampleClick(question)}
-                    className="p-4 text-left rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-sm text-gray-700"
+                    className="p-4 text-left rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-sm text-gray-700"
                   >
                     {question}
                   </button>
@@ -140,7 +160,7 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
                 <div className={`max-w-[85%] ${m.role === 'assistant' ? 'w-full' : ''}`}>
                   {/* 用户消息 */}
                   {m.role === 'user' && (
-                    <div className="inline-flex px-5 py-3 rounded-2xl rounded-br-md bg-blue-600 text-white text-sm leading-relaxed">
+                    <div className="inline-flex px-5 py-3 rounded-lg rounded-br-md bg-blue-600 text-white text-sm leading-relaxed">
                       {text}
                     </div>
                   )}
@@ -198,13 +218,13 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="输入问题，AI 将基于知识库回答..."
-              className="w-full px-5 py-3.5 pr-14 text-sm rounded-2xl border border-gray-200 bg-white focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all placeholder:text-gray-400"
+              className="w-full px-5 py-3.5 pr-14 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-gray-400"
               disabled={status === 'submitted'}
             />
             <button
               type={status === 'ready' || status === 'error' ? 'submit' : 'button'}
               onClick={status === 'streaming' || status === 'submitted' ? stop : undefined}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+              className={`absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md flex items-center justify-center transition-all ${
                 status === 'ready' || status === 'error'
                   ? 'bg-blue-600 hover:bg-blue-700 text-white'
                   : 'bg-red-500 hover:bg-red-600 text-white'
@@ -224,7 +244,9 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
             </button>
           </form>
           <p className="text-xs text-gray-400 text-center mt-2">
-            {kbId ? `当前知识库：${kbId}` : '搜索全部知识库'}
+            {kbId
+              ? `当前知识库：${kbSummary ? `${kbSummary.name} · ${kbSummary.docCount} 文档` : kbId}`
+              : '搜索全部知识库'}
           </p>
         </div>
       </div>

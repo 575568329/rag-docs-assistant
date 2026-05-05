@@ -31,21 +31,43 @@ type ChatMetadata = {
 export type ChatUIMessage = UIMessage<ChatMetadata>
 
 interface ChatRequest {
-  messages: { role: string; content: string }[]
+  messages: { role: string; content?: string; parts?: { type: string; text: string }[] }[]
   kbId: string
 }
 
 export async function POST(request: Request) {
   try {
-    const { messages: rawMessages, kbId }: ChatRequest = await request.json()
+    const body = await request.json() as Partial<ChatRequest>
+    const { messages: rawMessages, kbId } = body
+
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+      return new Response('消息不能为空', { status: 400 })
+    }
+
+    if (typeof kbId !== 'string') {
+      return new Response('知识库 ID 无效', { status: 400 })
+    }
 
     // AI SDK 的 UIMessage 格式转换为标准 message（parts → content）
-    const messages = rawMessages.map((m: { role: string; parts?: { type: string; text: string }[] }) => ({
+    const messages = rawMessages.map((m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
-      content: m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') ?? '',
-    }))
+      content: m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') ?? m.content ?? '',
+    })).filter(m => m.content.trim().length > 0)
+
+    if (messages.length === 0) {
+      return new Response('消息内容不能为空', { status: 400 })
+    }
 
     const userQuery = messages[messages.length - 1].content
+    if (!userQuery.trim()) {
+      return new Response('问题不能为空', { status: 400 })
+    }
+
+    if (!process.env.ZHIPU_API_KEY) {
+      logger.error('对话失败: 缺少 ZHIPU_API_KEY')
+      return new Response('服务未配置 AI API Key', { status: 500 })
+    }
+
     logger.info('对话请求', { kbId, query: userQuery, historyCount: messages.length - 1 })
 
     // Step 1: 将用户问题向量化

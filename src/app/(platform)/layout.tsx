@@ -7,6 +7,7 @@ import { getEntityConfig } from '@/lib/ui-constants'
 interface KnowledgeBase {
   id: string
   name: string
+  docCount?: number
 }
 
 interface Conversation {
@@ -55,16 +56,28 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const activePage = pathname.split('/').pop() || 'chat'
 
-  // 加载知识库列表
-  useEffect(() => {
-    fetch('/api/kb')
-      .then(res => res.json())
-      .then(data => { if (Array.isArray(data)) setKnowledgeBases(data) })
+  const fetchKnowledgeBases = useCallback(() => {
+    return fetch('/api/kb')
+      .then(res => {
+        if (!res.ok) throw new Error('获取知识库列表失败')
+        return res.json()
+      })
+      .then(data => {
+        if (Array.isArray(data)) setKnowledgeBases(data)
+      })
       .catch(err => console.error('获取知识库列表失败:', err))
   }, [])
+
+  // 加载知识库列表，并监听数据页创建/删除/上传后的刷新通知
+  useEffect(() => {
+    fetchKnowledgeBases()
+    window.addEventListener('knowledge-bases-changed', fetchKnowledgeBases)
+    return () => window.removeEventListener('knowledge-bases-changed', fetchKnowledgeBases)
+  }, [fetchKnowledgeBases])
 
   // 加载对话历史（仅对话页）
   useEffect(() => {
@@ -91,11 +104,18 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   const navigateTo = (page: string) => {
     const params = activeKbId ? `?kbId=${activeKbId}` : ''
     router.push(`/${page}${params}`)
+    setSidebarOpen(false)
   }
 
   const handleKbSelect = (kbId: string | null) => {
     const params = kbId ? `?kbId=${kbId}` : ''
     router.push(`${pathname}${params}`)
+    setSidebarOpen(false)
+  }
+
+  const handleCreateKbClick = () => {
+    window.dispatchEvent(new Event('open-create-kb-dialog'))
+    setSidebarOpen(false)
   }
 
   const handleNewChat = useCallback(async () => {
@@ -134,14 +154,24 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* 顶部导航栏 */}
-      <header className="h-14 border-b border-gray-100 flex items-center justify-between px-6 flex-shrink-0">
+      <header className="h-14 border-b border-gray-200 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+          {/* 移动端菜单按钮 */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+            aria-label="切换侧边栏"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="w-8 h-8 rounded-md bg-blue-600 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </div>
-          <span className="font-semibold text-gray-900">智能知识管理平台</span>
+          <span className="font-semibold text-gray-900 hidden sm:inline">智能知识管理平台</span>
         </div>
         <nav className="flex gap-1">
           {(['chat', 'data', 'graph'] as const).map(page => (
@@ -162,8 +192,15 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
 
       {/* 主体内容 */}
       <div className="flex-1 flex overflow-hidden">
+        {/* 移动端侧边栏遮罩 */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/30 z-30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         {/* 左侧侧边栏 */}
-        <aside className="w-60 bg-gray-50 border-r border-gray-100 flex flex-col flex-shrink-0">
+        <aside className={`fixed left-0 top-14 bottom-0 md:static md:top-auto md:bottom-auto z-40 w-60 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0 transform transition-transform md:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           {/* 功能按钮区 */}
           <div className="p-4">
             {activePage === 'chat' ? (
@@ -178,7 +215,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
               </button>
             ) : activePage === 'data' ? (
               <button
-                onClick={() => navigateTo('data')}
+                onClick={handleCreateKbClick}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -210,7 +247,8 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
                   activeKbId === kb.id ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                {kb.name}
+                <span className="block truncate">{kb.name}</span>
+                <span className="block text-xs text-gray-400 mt-0.5">{kb.docCount ?? 0} 文档</span>
               </button>
             ))}
           </nav>

@@ -86,7 +86,7 @@ export default function GraphSearch({ onSearch, results = [], onSelect, loading 
   // 激活态：搜索面板
   return (
     <div ref={panelRef} className="absolute top-4 left-4 z-20 w-96 max-w-[calc(100%-2rem)]">
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
         {/* 输入框 */}
         <div className="flex items-center px-4 border-b border-gray-100">
           <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

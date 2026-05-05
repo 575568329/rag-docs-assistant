@@ -27,6 +27,14 @@ export async function DELETE(
   try {
     const { id: kbId } = await params
     const { docId } = await request.json()
+    if (typeof docId !== 'string' || !docId) {
+      return NextResponse.json({ error: '文档 ID 无效' }, { status: 400 })
+    }
+
+    const targetDoc = db.listDocs(kbId).find(doc => doc.id === docId)
+    if (!targetDoc) {
+      return NextResponse.json({ error: '文档不存在' }, { status: 404 })
+    }
 
     const doc = db.deleteDoc(docId)
     if (!doc) {
