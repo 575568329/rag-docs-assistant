@@ -1,41 +1,37 @@
-# RAG 知识库问答系统
+# 智能知识管理平台
 
-基于 RAG（检索增强生成）架构的 AI 知识库问答系统。上传文档后，AI 基于文档内容进行精准问答，支持来源引用。
+一个面向个人或小团队的 RAG 文档知识管理平台。项目围绕「知识库管理、AI 问答、知识图谱」三个工作区组织：先上传并解析文档，再通过向量检索辅助问答，同时用图谱视图观察文档中的实体与关系。
+
+## 设计理念
+
+- **工作台优先**：首屏直接进入可操作界面，不做营销式落地页；顶部负责全局模块切换，左侧负责知识库选择，主区域聚焦当前任务。
+- **信息密度适中**：数据页采用紧凑卡片和表格化文档列表，减少大面积按钮和空白，让知识库、文档数、切片数、上传状态更容易扫描。
+- **上下文一致**：通过 `kbId` 保持对话、数据、图谱之间的知识库选择一致；新建、上传、删除后同步刷新左侧知识库列表和图谱状态。
+- **轻量视觉系统**：整体使用浅色背景、低饱和边框、8px 内圆角、克制的蓝色强调，服务于后台管理和重复操作场景。
 
 ## 技术栈
 
 | 类别 | 技术 |
-|------|------|
-| 框架 | Next.js 16 (App Router) + React 19 |
-| AI | Vercel AI SDK v6 + 智谱 GLM-4-flash |
-| 向量存储 | 文件存储（FileStore）/ ChromaDB（可选） |
+| --- | --- |
+| Web 框架 | Next.js 16.2.4 App Router |
+| 前端 | React 19.2.4 + TypeScript 5 |
 | 样式 | Tailwind CSS 4 |
-| 语言 | TypeScript 5 (strict) |
+| AI 编排 | AI SDK v6、`@ai-sdk/react`、`@ai-sdk/openai` |
+| 模型服务 | 智谱 GLM-4-flash、embedding-3 |
+| 文档解析 | `pdfjs-dist`、`mammoth`、`exceljs` |
+| 向量存储 | 本地 FileStore，ChromaDB 可选 |
+| 知识图谱 | `graphology`、`react-force-graph-2d` |
+| 持久化 | 本地 JSON 文件：`data/db.json`、`data/vectors.json`、`data/app.log` |
 
-## 功能特性
+## 核心能力
 
-### 知识库管理
-- 创建 / 删除知识库，支持多知识库并行
-- 默认内置知识库，开箱即用
-
-### 文档处理
-- 支持 `.txt` / `.md` 文件上传
-- Markdown 按标题分片，保留标题上下文
-- 同名文件自动去重
-- 上传进度条实时展示（XHR）
-- 文档列表展开查看 / 单个删除（同步清理向量数据）
-
-### RAG 对话
-- 文档切片 → 向量化 → 相似度检索 → 注入上下文 → LLM 流式回答
-- 余弦相似度搜索，Top-K + 最低阈值双过滤
-- 无相关文档时自动切换通用回答模式
-- 响应支持 Markdown 渲染（react-markdown）
-- 来源引用标注
-
-### 工程化
-- JSON 文件持久化（`data/db.json` + `data/vectors.json`）
-- 运行时日志记录（`data/app.log`）
-- 向量存储策略模式（FileStore / ChromaStore 可切换）
+- 多知识库创建、删除、选择与状态同步。
+- 支持上传 `.txt`、`.md`、`.pdf`、`.docx`、`.xlsx` 文档。
+- 文档解析、切片、向量化和相似度检索。
+- 基于知识库的流式 AI 问答，支持 Markdown 回答和来源引用。
+- 数据页查看知识库文档数、切片数、文档列表和处理状态。
+- 图谱页展示当前知识库的实体节点、关系数量、搜索和收藏节点。
+- 本地文件持久化，适合开发、演示和轻量个人知识库场景。
 
 ## 快速开始
 
@@ -47,10 +43,10 @@ npm install
 
 ### 2. 配置环境变量
 
-创建 `.env.local` 文件：
+创建 `.env.local`：
 
 ```env
-# 智谱 API Key（必填，从 https://open.bigmodel.cn 获取）
+# 智谱 API Key，从 https://open.bigmodel.cn 获取
 ZHIPU_API_KEY=your_api_key_here
 
 # 向量存储方式：file（默认）或 chroma
@@ -63,74 +59,55 @@ VECTOR_STORE=file
 npm run dev
 ```
 
-访问 [http://localhost:3000](http://localhost:3000) 即可使用。
+访问 [http://localhost:3000](http://localhost:3000)。
 
 ## 使用流程
 
-1. **创建知识库** — 点击「创建知识库」，填写名称和描述
-2. **上传文档** — 在知识库卡片上点击「上传文档」，选择 `.txt` 或 `.md` 文件
-3. **开始对话** — 点击「开始对话」进入问答页面，基于已上传文档进行提问
+1. 在「数据」页创建或选择知识库。
+2. 上传文档，等待解析、切片和向量化完成。
+3. 切到「对话」页，基于当前知识库提问。
+4. 切到「图谱」页，查看当前知识库抽取出的节点和关系。
 
 ## 项目结构
 
-```
+```text
 src/
 ├── app/
-│   ├── page.tsx                    # 首页 — 知识库管理
-│   ├── api/
-│   │   ├── chat/route.ts           # RAG 对话接口
-│   │   └── kb/
-│   │       ├── route.ts            # 知识库 CRUD
-│   │       └── [id]/
-│   │           ├── upload/route.ts # 文档上传 + 切片 + 向量化
-│   │           └── docs/route.ts   # 文档列表 / 单个删除
+│   ├── (platform)/
+│   │   ├── layout.tsx          # 平台布局：顶部导航 + 左侧知识库栏
+│   │   ├── chat/page.tsx       # 对话页
+│   │   ├── data/page.tsx       # 数据管理页
+│   │   └── graph/page.tsx      # 知识图谱页
+│   └── api/
+│       ├── chat/               # RAG 对话与历史
+│       ├── kb/                 # 知识库、文档、上传接口
+│       └── graph/              # 图谱数据、搜索、收藏接口
 ├── components/
-│   ├── ChatPanel.tsx               # 对话面板（AI SDK useChat）
-│   └── Toast.tsx                   # 通知提示组件
+│   ├── chat/                   # 对话页组件
+│   ├── data/                   # 知识库和文档管理组件
+│   └── graph/                  # 图谱画布、搜索、节点详情
 └── lib/
-    ├── db.ts                       # JSON 文件持久化（知识库 & 文档）
-    ├── types.ts                    # 类型定义
-    ├── chunker.ts                  # Markdown 文本切片
-    ├── embedding.ts                # 向量化（智谱 embedding-3）
-    ├── logger.ts                   # 运行时日志
-    └── vector-store/
-        ├── types.ts                # VectorStore 接口
-        ├── index.ts                # 工厂函数（根据环境变量选择存储）
-        ├── file-store.ts           # 文件存储实现
-        └── chroma-store.ts         # ChromaDB 存储实现
+    ├── db.ts                   # 本地元数据持久化
+    ├── doc-parser.ts           # 多格式文档解析
+    ├── chunker.ts              # 文档切片
+    ├── embedding.ts            # 向量化
+    ├── graph-store.ts          # 图谱数据存取
+    └── vector-store/           # FileStore / ChromaStore
 ```
 
 ## 数据存储
 
-所有数据存储在项目根目录的 `data/` 下（自动创建）：
+运行时会自动创建 `data/` 目录：
 
 | 文件 | 说明 |
-|------|------|
-| `data/db.json` | 知识库和文档元数据 |
-| `data/vectors.json` | 向量数据（仅 FileStore 模式） |
+| --- | --- |
+| `data/db.json` | 知识库、文档和会话元数据 |
+| `data/vectors.json` | FileStore 模式下的向量数据 |
 | `data/app.log` | 运行时日志 |
 
-## RAG 流程
+## 构建
 
+```bash
+npm run build
+npm run start
 ```
-用户提问
-  ↓
-问题向量化（embedding-3）
-  ↓
-向量相似度搜索（余弦相似度，Top-K=5，阈值≥0.45）
-  ↓
-有相关文档？ ──否──→ 通用回答模式
-  │是
-  ↓
-拼接检索结果 + 用户问题 → LLM（GLM-4-flash）
-  ↓
-流式返回 + 来源引用
-```
-
-## 后续优化方向
-
-- [ ] 混合检索（向量 + BM25 关键词搜索）提升召回率
-- [ ] 来源追溯标签（SourceBadge）
-- [ ] 多轮对话上下文优化
-- [ ] 接入 shadcn/ui 统一 UI 风格
-- [ ] 替换为 PostgreSQL + pgvector 生产级存储
