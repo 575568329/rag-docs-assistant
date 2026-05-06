@@ -16,6 +16,7 @@ export interface GraphNode {
   label: string
   type: EntityType
   val?: number
+  properties?: Record<string, string | number | boolean>
 }
 
 export interface GraphLink {
@@ -52,7 +53,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
   useEffect(() => {
     if (focusEntityId) {
       loadNodeNeighborhood(focusEntityId)
-    } else if (kbId) {
+    } else {
       loadOverview()
     }
     // 获取知识库名称（用于状态栏展示）
@@ -89,7 +90,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
 
       const data = await response.json()
       const nodes: GraphNode[] = (data.nodes || []).map((node: any) => ({
-        id: node.id, label: node.label, type: node.type, val: node.val,
+        id: node.id, label: node.label, type: node.type, val: node.val, properties: node.properties,
       }))
       const links: GraphLink[] = (data.edges || []).map((edge: any) => ({
         source: edge.source, target: edge.target, label: edge.label,
@@ -144,6 +145,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
         label: node.label,
         type: node.type,
         val: node.val,
+        properties: node.properties,
       }))
 
       const links: GraphLink[] = (data.edges || []).map((edge: any) => ({
@@ -251,8 +253,8 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
       {/* 状态栏：知识库名称 + 节点/关系数 */}
       {overviewLoaded && graphData.nodes.length > 0 && (
         <div className="absolute top-20 left-4 z-10 px-3 py-1.5 text-xs text-gray-500 bg-white/90 border border-gray-200 rounded-lg backdrop-blur-sm">
-          {kbName && <span className="font-medium text-gray-700">{kbName}</span>}
-          {kbName && <span className="mx-1.5">·</span>}
+          <span className="font-medium text-gray-700">{kbName || '全部知识库'}</span>
+          <span className="mx-1.5">·</span>
           <span>{graphData.nodes.length} 节点</span>
           <span className="mx-1.5">·</span>
           <span>{graphData.links.length} 关系</span>

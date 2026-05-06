@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { logger, startTimer } from '@/lib/logger'
+import { demoWriteBlocked, isDemoMode } from '@/lib/demo-mode'
 
 /** GET /api/graph/favorites?kbId=xxx — 获取收藏列表 */
 export async function GET(request: Request) {
@@ -21,6 +22,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const timer = startTimer()
   try {
+    if (isDemoMode()) {
+      return demoWriteBlocked('addFavorite')
+    }
+
     const body = await request.json()
     const { nodeId, nodeLabel, nodeType, kbId } = body
     if (!nodeId || !nodeLabel || !nodeType) {
@@ -40,6 +45,10 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const timer = startTimer()
   try {
+    if (isDemoMode()) {
+      return demoWriteBlocked('removeFavorite')
+    }
+
     const { searchParams } = new URL(request.url)
     const favId = searchParams.get('favId')
     if (!favId) {

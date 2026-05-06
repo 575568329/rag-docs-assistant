@@ -14,6 +14,7 @@ import { getEmbedding } from '@/lib/embedding'
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, UIMessage } from 'ai'
 import { logger } from '@/lib/logger'
+import { db } from '@/lib/db'
 import type { SourceRef } from '@/lib/types'
 
 /** 相似度最低阈值，低于此分数视为不相关 */
@@ -74,27 +75,52 @@ export async function POST(request: Request) {
     const searchQuery = buildSearchQuery(messages)
     const [queryVector] = await getEmbedding([searchQuery])
 
-    // Step 2: 混合检索（向量 + 关键词），FileStore 支持混合搜索
+    // Step 2: 解析检索范围
+    const kbScope = resolveKnowledgeBaseScope(kbId)
+    const collectionNames = kbScope.map((kb) => kb.collectionName)
+    const kbNameMap = new Map(kbScope.map((kb) => [kb.id, kb.name]))
+    const docsByKbAndFilename = new Map<string, { id: string }>()
+    kbScope.forEach((kb) => {
+      db.listDocs(kb.id).forEach((doc) => {
+        docsByKbAndFilename.set(`${kb.id}::${doc.filename}`, { id: doc.id })
+      })
+    })
+
+    logger.info('检索范围', {
+      requestedKbId: kbId,
+      scope: kbScope.length === 1 && kbId
+        ? 'single'
+        : 'all',
+      kbCount: kbScope.length,
+      kbIds: kbScope.map((kb) => kb.id),
+    })
+
+    // Step 3: 混合检索（向量 + 关键词）
     const vectorStore = getVectorStore()
-    const collectionName = `kb-${kbId}`
     const isHybrid = vectorStore instanceof FileStore
-    const searchResults = isHybrid
-      ? await vectorStore.hybridSearch(collectionName, queryVector, userQuery, TOP_K)
-      : await vectorStore.similaritySearch(collectionName, queryVector, TOP_K)
+    const searchResults = await vectorStore.search(
+      collectionNames,
+      queryVector,
+      TOP_K,
+      isHybrid ? userQuery : undefined
+    )
     logger.info('搜索结果', {
       kbId,
       mode: isHybrid ? 'hybrid' : 'vector',
+      searchedCollections: collectionNames,
       hits: searchResults.length,
       topScore: searchResults[0]?.score,
       results: searchResults.map((r, i) => ({
         index: i + 1,
         score: r.score,
+        kbId: r.kbId ?? 'unknown',
+        kbName: r.kbId ? (kbNameMap.get(r.kbId) ?? r.kbId) : '未知知识库',
         source: r.metadata?.filename ?? '未知',
         content: r.content?.slice(0, 200),
       })),
     })
 
-    // Step 3: 过滤低相关性结果，构建上下文
+    // Step 4: 过滤低相关性结果，构建上下文
     // 混合搜索的 RRF 分数范围与余弦相似度不同，不做阈值过滤，直接使用 top-K 结果
     const relevantResults = isHybrid
       ? searchResults
@@ -108,8 +134,13 @@ export async function POST(request: Request) {
     // 构建来源引用列表（与上下文编号一一对应）
     const sources: SourceRef[] = usedResults.map((r, i) => ({
       index: i + 1,
+      kbId: r.kbId,
+      docId: r.kbId && r.metadata?.filename
+        ? docsByKbAndFilename.get(`${r.kbId}::${r.metadata.filename}`)?.id
+        : undefined,
       filename: r.metadata?.filename ?? '未知文档',
       heading: r.metadata?.heading ?? '未知章节',
+      knowledgeBaseName: r.kbId ? (kbNameMap.get(r.kbId) ?? r.kbId) : undefined,
       score: r.score ?? 0,
     }))
 
@@ -120,7 +151,7 @@ export async function POST(request: Request) {
       contextLength: context.length,
     })
 
-    // Step 4: 调用 LLM 流式生成回答
+    // Step 5: 调用 LLM 流式生成回答
     const glm = createOpenAI({
       baseURL: 'https://open.bigmodel.cn/api/paas/v4',
       apiKey: process.env.ZHIPU_API_KEY,
@@ -135,7 +166,7 @@ export async function POST(request: Request) {
       },
     })
 
-    // Step 5: 通过 messageMetadata 将来源信息传递给前端
+    // Step 6: 通过 messageMetadata 将来源信息传递给前端
     return result.toUIMessageStreamResponse({
       messageMetadata: ({ part }) => {
         if (part.type === 'finish') {
@@ -147,6 +178,38 @@ export async function POST(request: Request) {
     logger.error('对话失败', { error: String(error) })
     return new Response('对话失败', { status: 500 })
   }
+}
+
+interface KnowledgeBaseScopeItem {
+  id: string
+  name: string
+  collectionName: string
+}
+
+/**
+ * 根据当前 kbId 解析真正的检索范围。
+ *
+ * 约定：
+ * - `kbId` 有值：只检索当前知识库
+ * - `kbId` 为空字符串 / null：检索所有已有知识库
+ *
+ * 这里复用 `db.listKB()` 作为知识库真源，避免在聊天链路里再维护一份平行配置。
+ */
+function resolveKnowledgeBaseScope(kbId: string): KnowledgeBaseScopeItem[] {
+  const allKnowledgeBases = db.listKB()
+
+  if (kbId.trim()) {
+    const matched = allKnowledgeBases.find((item) => item.id === kbId)
+    return matched
+      ? [{ id: matched.id, name: matched.name, collectionName: `kb-${matched.id}` }]
+      : []
+  }
+
+  return allKnowledgeBases.map((item) => ({
+    id: item.id,
+    name: item.name,
+    collectionName: `kb-${item.id}`,
+  }))
 }
 
 /**

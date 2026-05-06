@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { demoWriteBlocked, isDemoMode } from '@/lib/demo-mode'
 
 /** GET /api/chat/history?kbId=xxx — 获取对话列表 */
 export async function GET(request: Request) {
@@ -11,6 +12,10 @@ export async function GET(request: Request) {
 
 /** POST /api/chat/history — 创建新对话 */
 export async function POST(request: Request) {
+  if (isDemoMode()) {
+    return demoWriteBlocked('createConversation')
+  }
+
   const body = await request.json()
   const { title, kbId } = body
   if (!title?.trim()) {
@@ -22,6 +27,10 @@ export async function POST(request: Request) {
 
 /** DELETE /api/chat/history?convId=xxx — 删除对话 */
 export async function DELETE(request: Request) {
+  if (isDemoMode()) {
+    return demoWriteBlocked('deleteConversation')
+  }
+
   const { searchParams } = new URL(request.url)
   const convId = searchParams.get('convId')
   if (!convId) {

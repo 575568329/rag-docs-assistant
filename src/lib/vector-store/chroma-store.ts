@@ -16,6 +16,30 @@ export class ChromaStore implements VectorStore {
     this.client = client
   }
 
+  /**
+   * Chroma 当前仍以“单集合查询”作为基本能力。
+   *
+   * 为了支持“全部知识库”模式，这里逐个集合查询并做一次全局归并。
+   * 这样实现简单且不改变现有集合模型，后续如果需要更高性能，再考虑为 Chroma 增加统一集合 + metadata 过滤方案。
+   */
+  async search(
+    collectionNames: string[],
+    queryVector: number[],
+    topK: number,
+    _queryText?: string
+  ): Promise<SearchResult[]> {
+    if (collectionNames.length === 0) return []
+
+    const results = await Promise.all(
+      collectionNames.map((collectionName) => this.similaritySearch(collectionName, queryVector, topK))
+    )
+
+    return results
+      .flat()
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, topK)
+  }
+
   async addVectors(
     collectionName: string,
     vectors: number[][],
@@ -52,6 +76,7 @@ export class ChromaStore implements VectorStore {
       data.push({
         content: results.documents[0][index] || '',
         score: distance !== null ? 1 - distance : 0,
+        kbId: extractKbId(collectionName),
         metadata: rawMeta
           ? {
               filename: (rawMeta.filename as string) ?? '',
@@ -78,4 +103,9 @@ export class ChromaStore implements VectorStore {
     const collection = await this.client.getOrCreateCollection({ name: collectionName })
     return collection.count()
   }
+}
+
+/** 从集合名 `kb-{kbId}` 中恢复知识库 ID */
+function extractKbId(collectionName: string): string {
+  return collectionName.startsWith('kb-') ? collectionName.slice(3) : collectionName
 }

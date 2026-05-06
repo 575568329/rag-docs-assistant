@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { logger, startTimer } from '@/lib/logger'
+import { demoWriteBlocked, isDemoMode } from '@/lib/demo-mode'
 
 /** 获取知识库列表 */
 export async function GET() {
@@ -26,6 +27,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const timer = startTimer()
   try {
+    if (isDemoMode()) {
+      return demoWriteBlocked('createKnowledgeBase')
+    }
+
     const body = await request.json()
 
     if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {

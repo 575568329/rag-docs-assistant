@@ -19,6 +19,8 @@ import { getGraphStore } from '@/lib/graph-store'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { saveUploadedFile } from '@/lib/document-files'
+import { demoWriteBlocked, isDemoMode } from '@/lib/demo-mode'
 
 export async function POST(
   request: Request,
@@ -26,6 +28,9 @@ export async function POST(
 ) {
   try {
     const { id: kbId } = await params
+    if (isDemoMode()) {
+      return demoWriteBlocked('uploadDocument', { kbId })
+    }
 
     // Step 1: 校验知识库是否存在
     const kb = db.listKB().find(k => k.id === kbId)
@@ -86,13 +91,18 @@ export async function POST(
     const vectorStore = getVectorStore()
     await vectorStore.addVectors(`kb-${kbId}`, vectors, chunks, ids, metas)
 
-    // Step 8: 记录文档元数据（含 chunkIds，用于后续删除）
-    db.addDoc(kbId, file.name, chunks.length, ids)
+    // Step 8: 保存原始文件并记录文档元数据（含 chunkIds，用于后续删除）
+    const fileMeta = await saveUploadedFile(kbId, file)
+    const doc = db.addDoc(kbId, file.name, chunks.length, ids, fileMeta)
 
     // Step 9: 提取实体并写入知识图谱（异步，失败不影响上传结果）
     const graphStore = getGraphStore()
     const docNodeId = `doc:${kbId}:${file.name}`
-    graphStore.addNode(docNodeId, file.name, 'Document', { kbId, createdAt: new Date().toISOString() })
+    graphStore.addNode(docNodeId, file.name, 'Document', {
+      kbId,
+      docId: doc.id,
+      createdAt: new Date().toISOString(),
+    })
 
     extractEntities(text.slice(0, 8000), kbId).then(result => {
       const entityMap = new Map<string, string>()
@@ -122,7 +132,7 @@ export async function POST(
       logger.error('实体提取失败（不影响上传）', { error: String(err) })
     })
 
-    logger.info('文档上传成功', { kbId, filename: file.name, chunks: chunks.length })
+    logger.info('文档上传成功', { kbId, docId: doc.id, filename: file.name, chunks: chunks.length, fileSize: fileMeta.fileSize })
     return NextResponse.json({ success: true })
   } catch (error) {
     logger.error('上传失败', { error: String(error) })

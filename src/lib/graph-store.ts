@@ -71,6 +71,19 @@ export interface GraphSnapshot {
   stats: GraphStats
 }
 
+function exportProperties(attrs: Record<string, unknown>): Record<string, string | number | boolean> {
+  const properties: Record<string, string | number | boolean> = {}
+
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === 'label' || key === 'type') continue
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      properties[key] = value
+    }
+  }
+
+  return properties
+}
+
 /** 读取 graph.json，返回序列化数据或空图 */
 function loadGraphData(): {
   attributes: Record<string, unknown>
@@ -162,7 +175,7 @@ export class GraphStore {
           id: nodeId,
           label: nodeAttrs.label,
           type: nodeAttrs.type,
-          properties: { kbId: nodeAttrs.kbId },
+          properties: exportProperties(attrs as Record<string, unknown>),
         })
       }
     })
@@ -195,7 +208,7 @@ export class GraphStore {
           id: currNode,
           label: nodeAttrs.label,
           type: nodeAttrs.type,
-          properties: { kbId: nodeAttrs.kbId },
+          properties: exportProperties(attrs as Record<string, unknown>),
         })
 
         // 收集到已访问节点的边
@@ -230,7 +243,7 @@ export class GraphStore {
         id: nodeId,
         label: nodeAttrs.label,
         type: nodeAttrs.type,
-        properties: { kbId: nodeAttrs.kbId },
+        properties: exportProperties(attrs as Record<string, unknown>),
       })
     })
 
