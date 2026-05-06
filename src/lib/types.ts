@@ -13,6 +13,10 @@ export interface Document {
   chunkCount: number
   uploadedAt: string
   chunkIds?: string[]
+  filePath?: string
+  mimeType?: string
+  fileSize?: number
+  hasFile?: boolean
 }
 
 /** 每个 chunk 的来源元数据，用于来源追溯 */
@@ -29,6 +33,7 @@ export interface ChunkMetadata {
 export interface SearchResult {
   content: string | null
   score: number | null
+  kbId?: string
   metadata: ChunkMetadata | null
 }
 
@@ -36,10 +41,16 @@ export interface SearchResult {
 export interface SourceRef {
   /** 编号，对应 LLM 回答中的 [1] [2] */
   index: number
+  /** 所属知识库 ID */
+  kbId?: string
+  /** 来源文档 ID */
+  docId?: string
   /** 来源文件名 */
   filename: string
   /** 所属章节标题 */
   heading: string
+  /** 所属知识库名称（跨知识库检索时用于区分来源） */
+  knowledgeBaseName?: string
   /** 相似度分数 */
   score: number
 }

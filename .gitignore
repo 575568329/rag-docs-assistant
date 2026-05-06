@@ -44,3 +44,7 @@ next-env.d.ts
 data/
 uploads/
 docs/
+!src/app/api/kb/\[id\]/docs/
+!src/app/api/kb/\[id\]/docs/**
+.claude/
+.codex/

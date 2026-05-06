@@ -82,6 +82,7 @@ export default function KbCard({
     : new Date(kb.createdAt).toLocaleString('zh-CN')
   const hasLoadedDocs = docs.length > 0 || kb.docCount === 0
   const totalChunks = docs.reduce((sum, doc) => sum + doc.chunkCount, 0)
+  const getDownloadUrl = (doc: Document) => `/api/kb/${encodeURIComponent(kb.id)}/docs/${encodeURIComponent(doc.id)}/download`
 
   return (
     <div
@@ -185,7 +186,7 @@ export default function KbCard({
                 <span className="flex-1 min-w-0">文档名称</span>
                 <span className="w-14 text-right flex-shrink-0">切片数</span>
                 <span className="w-20 text-center flex-shrink-0 hidden sm:block">上传时间</span>
-                <span className="w-10 flex-shrink-0" />
+                <span className="w-16 flex-shrink-0" />
               </div>
               {/* 文档行 */}
               <div className="space-y-0.5">
@@ -203,15 +204,29 @@ export default function KbCard({
                     <span className="w-20 text-center flex-shrink-0 text-xs text-gray-400 hidden sm:block truncate">
                       {doc.uploadedAt || '--'}
                     </span>
-                    <button
-                      onClick={() => onDeleteDoc(doc.id)}
-                      className="w-10 flex-shrink-0 p-1 text-gray-300 hover:text-red-500 rounded transition-colors flex items-center justify-center"
-                      title="删除文档"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div className="w-16 flex-shrink-0 flex items-center justify-end gap-1">
+                      <a
+                        href={getDownloadUrl(doc)}
+                        className={`p-1 rounded transition-colors flex items-center justify-center ${
+                          doc.hasFile ? 'text-gray-400 hover:text-blue-600' : 'text-gray-200 pointer-events-none'
+                        }`}
+                        title={doc.hasFile ? '下载文档' : '历史文档缺少原始文件'}
+                        aria-disabled={!doc.hasFile}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v10m0 0l4-4m-4 4l-4-4M4 20h16" />
+                        </svg>
+                      </a>
+                      <button
+                        onClick={() => onDeleteDoc(doc.id)}
+                        className="p-1 text-gray-300 hover:text-red-500 rounded transition-colors flex items-center justify-center"
+                        title="删除文档"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

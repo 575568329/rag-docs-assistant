@@ -35,6 +35,24 @@ function saveAll(data: Record<string, unknown>): void {
 }
 
 export class FileStore implements VectorStore {
+  /**
+   * 在多个集合上做统一检索。
+   *
+   * FileStore 的优势是所有集合都在本地文件里，因此这里直接把目标集合展开后做一次
+   * 全局排序，保证“全部知识库”模式下拿到的是跨库 topK，而不是先分库、再粗糙拼接。
+   */
+  async search(
+    collectionNames: string[],
+    queryVector: number[],
+    topK: number,
+    queryText?: string
+  ): Promise<SearchResult[]> {
+    if (collectionNames.length === 0) return []
+
+    return queryText
+      ? this.hybridSearchMany(collectionNames, queryVector, queryText, topK)
+      : this.similaritySearchMany(collectionNames, queryVector, topK)
+  }
 
   /**
    * 添加向量到指定集合
@@ -88,6 +106,7 @@ export class FileStore implements VectorStore {
     const { vectors, texts, metas } = collection
     const scored: SearchResult[] = vectors.map((vec: number[], i: number) => ({
       score: cosineSimilarity(vec, queryVector),
+      kbId: extractKbId(collectionName),
       content: texts[i] as string | null,
       metadata: metas?.[i] ?? null,
     }))
@@ -167,6 +186,7 @@ export class FileStore implements VectorStore {
       return {
         content: text as string | null,
         score: matched / tokens.length,
+        kbId: extractKbId(collectionName),
         metadata: collection.metas?.[i] ?? null,
       }
     })
@@ -190,6 +210,98 @@ export class FileStore implements VectorStore {
     const [vectorResults, keywordResults] = await Promise.all([
       this.similaritySearch(collectionName, queryVector, topK),
       this.keywordSearch(collectionName, queryText, topK),
+    ])
+
+    return reciprocalRankFusion([vectorResults, keywordResults], topK)
+  }
+
+  /**
+   * 多集合余弦检索。
+   *
+   * 把多个集合视为一个逻辑检索域，统一比较相似度后取全局 topK。
+   */
+  async similaritySearchMany(
+    collectionNames: string[],
+    queryVector: number[],
+    topK: number
+  ): Promise<SearchResult[]> {
+    const all = loadAll()
+    const scored: SearchResult[] = []
+
+    for (const collectionName of collectionNames) {
+      const collection = all[collectionName]
+      if (!collection) continue
+
+      const { vectors, texts, metas } = collection
+      const kbId = extractKbId(collectionName)
+      for (let i = 0; i < vectors.length; i++) {
+        scored.push({
+          score: cosineSimilarity(vectors[i], queryVector),
+          kbId,
+          content: texts[i] as string | null,
+          metadata: metas?.[i] ?? null,
+        })
+      }
+    }
+
+    scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    return scored.slice(0, topK)
+  }
+
+  /**
+   * 多集合关键词检索。
+   *
+   * 分词和匹配逻辑与单集合保持一致，只是把匹配范围扩展为多个知识库。
+   */
+  async keywordSearchMany(
+    collectionNames: string[],
+    query: string,
+    topK: number
+  ): Promise<SearchResult[]> {
+    const tokens = tokenize(query)
+    if (tokens.length === 0) return []
+
+    const all = loadAll()
+    const scored: SearchResult[] = []
+
+    for (const collectionName of collectionNames) {
+      const collection = all[collectionName]
+      if (!collection) continue
+
+      const kbId = extractKbId(collectionName)
+      for (let i = 0; i < collection.texts.length; i++) {
+        const text = collection.texts[i]
+        const matched = tokens.filter(t => text.includes(t)).length
+        if (matched === 0) continue
+
+        scored.push({
+          content: text as string | null,
+          score: matched / tokens.length,
+          kbId,
+          metadata: collection.metas?.[i] ?? null,
+        })
+      }
+    }
+
+    scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    return scored.slice(0, topK)
+  }
+
+  /**
+   * 多集合混合检索。
+   *
+   * 先在全局范围分别做向量检索和关键词检索，再通过 RRF 融合，避免“每个知识库先拿 topK”
+   * 导致小集合把真正更相关的结果挤掉。
+   */
+  async hybridSearchMany(
+    collectionNames: string[],
+    queryVector: number[],
+    queryText: string,
+    topK: number
+  ): Promise<SearchResult[]> {
+    const [vectorResults, keywordResults] = await Promise.all([
+      this.similaritySearchMany(collectionNames, queryVector, topK),
+      this.keywordSearchMany(collectionNames, queryText, topK),
     ])
 
     return reciprocalRankFusion([vectorResults, keywordResults], topK)
@@ -243,6 +355,11 @@ function reciprocalRankFusion(
     .sort((a, b) => b.score - a.score)
     .map(item => ({ ...item.result, score: item.score }))
     .slice(0, topK)
+}
+
+/** 从集合名 `kb-{kbId}` 中恢复知识库 ID */
+function extractKbId(collectionName: string): string {
+  return collectionName.startsWith('kb-') ? collectionName.slice(3) : collectionName
 }
 
 /** 计算两个向量的余弦相似度 */

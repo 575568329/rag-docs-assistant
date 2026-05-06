@@ -18,6 +18,7 @@ interface InternalNode extends ForceNode {
   label: string
   type: string
   val?: number
+  properties?: Record<string, string | number | boolean>
   x?: number
   y?: number
   neighbors: string[]
@@ -31,13 +32,14 @@ export interface SimpleGraphNode {
   label: string
   type: EntityType
   val?: number
+  properties?: Record<string, string | number | boolean>
   x?: number
   y?: number
 }
 
 interface GraphCanvasProps {
   graphData: {
-    nodes: Array<{ id: string; label: string; type: string; val?: number }>
+    nodes: Array<{ id: string; label: string; type: string; val?: number; properties?: Record<string, string | number | boolean> }>
     links: Array<{ source: string; target: string; label: string }>
   }
   onNodeClick: (node: SimpleGraphNode) => void
@@ -50,7 +52,7 @@ const BG_COLOR = '#ffffff'
 const NODE_RADIUS = 5
 
 function toSimpleNode(node: InternalNode): SimpleGraphNode {
-  return { id: node.id, label: node.label, type: node.type as EntityType, val: node.val, x: node.x, y: node.y }
+  return { id: node.id, label: node.label, type: node.type as EntityType, val: node.val, properties: node.properties, x: node.x, y: node.y }
 }
 
 export default function GraphCanvas({ graphData, onNodeClick, onNodeHover, hoveredNode }: GraphCanvasProps) {

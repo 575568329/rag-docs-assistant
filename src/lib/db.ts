@@ -99,7 +99,13 @@ export const db = {
   },
 
   /** 添加文档记录 */
-  addDoc(kbId: string, filename: string, chunkCount: number, chunkIds?: string[]): Document {
+  addDoc(
+    kbId: string,
+    filename: string,
+    chunkCount: number,
+    chunkIds?: string[],
+    fileMeta?: Pick<Document, 'filePath' | 'mimeType' | 'fileSize'>
+  ): Document {
     const data = loadDB()
     const doc: Document = {
       id: 'doc_' + data.documentsId,
@@ -108,6 +114,7 @@ export const db = {
       chunkCount,
       uploadedAt: new Date().toLocaleDateString(),
       chunkIds,
+      ...fileMeta,
     }
     data.documents.push(doc)
     data.documentsId++

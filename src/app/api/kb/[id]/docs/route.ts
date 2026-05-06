@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getVectorStore } from '@/lib/vector-store'
 import { logger, startTimer } from '@/lib/logger'
+import { deleteStoredFile } from '@/lib/document-files'
 
 /** 获取文档列表，请求体：无 */
 export async function GET(
@@ -18,7 +19,10 @@ export async function GET(
   const timer = startTimer()
   const { id: kbId } = await params
   try {
-    const docs = db.listDocs(kbId)
+    const docs = db.listDocs(kbId).map(({ filePath, ...doc }) => ({
+      ...doc,
+      hasFile: Boolean(filePath),
+    }))
     logger.info('获取文档列表', { kbId, count: docs.length, ...timer() })
     return NextResponse.json(docs)
   } catch (error) {
@@ -59,6 +63,7 @@ export async function DELETE(
     if (chunkCount > 0) {
       await getVectorStore().removeVectors(`kb-${kbId}`, chunkIds)
     }
+    await deleteStoredFile(doc.filePath)
 
     logger.info('文档删除成功', { kbId, docId, filename: doc.filename, chunkCount, ...timer() })
     return NextResponse.json({ success: true })
