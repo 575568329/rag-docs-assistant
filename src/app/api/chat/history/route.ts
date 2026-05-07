@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-/** GET /api/chat/history?kbId=xxx — 获取对话列表 */
+/** GET /api/chat/history?kbId=xxx — 获取对话列表
+ *  GET /api/chat/history?convId=xxx — 获取单个对话及完整消息
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+  const convId = searchParams.get('convId')
+
+  if (convId) {
+    const conversation = db.getConversation(convId)
+    if (!conversation) {
+      return NextResponse.json({ error: '对话不存在' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      conversation,
+      messages: db.listConversationMessages(convId),
+    })
+  }
+
   const kbId = searchParams.get('kbId') || null
   const conversations = db.listConversations(kbId)
   return NextResponse.json(conversations)

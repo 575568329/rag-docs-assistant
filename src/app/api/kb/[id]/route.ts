@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getVectorStore } from '@/lib/vector-store'
 import { logger, startTimer } from '@/lib/logger'
 import { deleteStoredFile } from '@/lib/document-files'
+import { getGraphStore } from '@/lib/graph-store'
 
 export async function DELETE(
   request: Request,
@@ -14,6 +15,7 @@ export async function DELETE(
     const docs = db.listDocs(id)
     db.deleteKB(id)
     await getVectorStore().deleteCollection(`kb-${id}`)
+    getGraphStore().deleteCollection(id)
     await Promise.all(docs.map(doc => deleteStoredFile(doc.filePath)))
     logger.info('知识库删除成功', { kbId: id, docCount: docs.length, ...timer() })
     return NextResponse.json({ success: true })
@@ -22,3 +24,4 @@ export async function DELETE(
     return NextResponse.json({ error: '删除失败' }, { status: 500 })
   }
 }
+

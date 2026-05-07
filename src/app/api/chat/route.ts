@@ -4,7 +4,7 @@
  * 流程：用户提问 → 向量化 → 相似度搜索 → 注入上下文 → LLM 流式回答
  * 支持来源追溯：搜索结果的元数据（文件名、标题、分数）通过 messageMetadata 传递给前端
  *
- * 请求体：{ messages: UIMessage[], kbId: string }
+ * 请求体：{ messages: UIMessage[], kbId: string, conversationId?: string }
  * 响应：SSE 流式文本（UI Message Stream），附带 sources 元数据
  */
 
@@ -34,12 +34,13 @@ export type ChatUIMessage = UIMessage<ChatMetadata>
 interface ChatRequest {
   messages: { role: string; content?: string; parts?: { type: string; text: string }[] }[]
   kbId: string
+  conversationId?: string
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json() as Partial<ChatRequest>
-    const { messages: rawMessages, kbId } = body
+    const { messages: rawMessages, kbId, conversationId } = body
 
     if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
       return new Response('消息不能为空', { status: 400 })
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
 
     if (typeof kbId !== 'string') {
       return new Response('知识库 ID 无效', { status: 400 })
+    }
+
+    if (conversationId !== undefined && typeof conversationId !== 'string') {
+      return new Response('对话 ID 无效', { status: 400 })
     }
 
     // AI SDK 的 UIMessage 格式转换为标准 message（parts → content）
@@ -69,7 +74,9 @@ export async function POST(request: Request) {
       return new Response('服务未配置 AI API Key', { status: 500 })
     }
 
-    logger.info('对话请求', { kbId, query: userQuery, historyCount: messages.length - 1 })
+    const normalizedConversationId = conversationId?.trim() || null
+
+    logger.info('对话请求', { kbId, conversationId: normalizedConversationId, query: userQuery, historyCount: messages.length - 1 })
 
     // Step 1: 将用户问题向量化
     const searchQuery = buildSearchQuery(messages)
@@ -162,7 +169,16 @@ export async function POST(request: Request) {
       messages,
       system: buildSystemPrompt(context, hasRelevantContext),
       onFinish: ({ text }) => {
-        logger.info('LLM回答', { kbId, query: userQuery, response: text })
+        logger.info('LLM回答', { kbId, conversationId: normalizedConversationId, query: userQuery, response: text })
+
+        if (normalizedConversationId) {
+          const savedUserMessage = db.addConversationMessage(normalizedConversationId, 'user', userQuery)
+          const savedAssistantMessage = db.addConversationMessage(normalizedConversationId, 'assistant', text, { sources })
+
+          if (!savedUserMessage || !savedAssistantMessage) {
+            logger.warn('对话消息保存失败: conversationId 不存在', { conversationId: normalizedConversationId })
+          }
+        }
       },
     })
 
@@ -255,3 +271,4 @@ ${context}
   return `参考资料中未找到与问题直接相关的内容。
 请基于你的知识回答，并在回答开头标注"以下内容未在知识库中找到相关资料，为AI补充回答"。`
 }
+
