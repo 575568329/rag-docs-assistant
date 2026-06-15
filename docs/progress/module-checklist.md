@@ -14,37 +14,37 @@
 
 ### 任务列表
 
-- [ ] 初始化 Next.js 16 项目
-  - [ ] `npx create-next-app@latest`
-  - [ ] 选择 App Router + TypeScript + Tailwind
+- [x] 初始化 Next.js 16 项目
+  - [x] `npx create-next-app@latest`
+  - [x] 选择 App Router + TypeScript + Tailwind
   
-- [ ] 配置开发环境
-  - [ ] 配置 `tsconfig.json`
-  - [ ] 配置 `next.config.ts`
-  - [ ] 配置 ESLint
-  - [ ] 安装必要依赖
+- [x] 配置开发环境
+  - [x] 配置 `tsconfig.json`
+  - [x] 配置 `next.config.ts`
+  - [x] 配置 ESLint
+  - [x] 安装必要依赖
 
-- [ ] 搭建基础布局
-  - [ ] 创建 `app/layout.tsx`（根布局）
-  - [ ] 创建 `app/(platform)/layout.tsx`（平台布局）
-  - [ ] 创建顶部导航（3 个 Tab：对话/数据/图谱）
-  - [ ] 创建左侧边栏容器
+- [x] 搭建基础布局
+  - [x] 创建 `app/layout.tsx`（根布局）
+  - [x] 创建 `app/(platform)/layout.tsx`（平台布局）
+  - [x] 创建顶部导航（3 个 Tab：对话/数据/图谱）
+  - [x] 创建左侧边栏容器
   
-- [ ] 创建 3 个工作台页面
-  - [ ] `app/(platform)/chat/page.tsx`
-  - [ ] `app/(platform)/data/page.tsx`
-  - [ ] `app/(platform)/graph/page.tsx`
+- [x] 创建 3 个工作台页面
+  - [x] `app/(platform)/chat/page.tsx`
+  - [x] `app/(platform)/data/page.tsx`
+  - [x] `app/(platform)/graph/page.tsx`
 
-- [ ] 验证
-  - [ ] `npm run dev` 启动成功
-  - [ ] 访问 http://localhost:3000
-  - [ ] 3 个 Tab 能正常切换
+- [x] 验证
+  - [x] `npm run dev` 启动成功
+  - [x] 访问 http://localhost:3000
+  - [x] 3 个 Tab 能正常切换
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
-**实际耗时**: -
+**实际耗时**: 约 2h
 
-**完成日期**: -
+**完成日期**: 2026-06-15
 
 ---
 
