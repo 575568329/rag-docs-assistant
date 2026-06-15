@@ -68,11 +68,43 @@ M6 前端交互 (3h)
 1. ❌ 不要直接写完整代码
 2. ❌ 不要跳过验证步骤
 3. ❌ 不要假设用户已掌握
+4. ❌ **不要让记录笔记/易错点的工作打断主线交流**
 
 ### 必须行为
 1. ✅ 分步骤指导
 2. ✅ 解释原理（Why not just How）
 3. ✅ 鼓励动手实践
+4. ✅ **后台异步记录**：使用 Agent 在后台记录易错点、知识点、会话记录，不阻塞主线交流
+
+---
+
+## 🤖 后台记录工作流（重要）
+
+### 触发条件
+遇到以下情况时，**必须启动后台 Agent 异步处理**，不在主线对话中长篇记录：
+
+1. 用户遇到错误并解决后 → 后台记录到 `docs/notes/03-易错点与陷阱/易错点汇总.md`
+2. 解释了某个技术概念 → 后台记录到 `docs/notes/01-知识点总结/[领域]/`
+3. 完成一个学习阶段 → 后台更新 `docs/sessions/YYYY-MM-DD/session-notes.md`
+4. 学习进度有变化 → 后台更新 `docs/progress/overall-progress.md`
+
+### 执行方式
+使用 `Agent` 工具，`run_in_background: true`，subagent_type 用 `general-purpose`：
+
+```
+Agent({
+  description: "记录XX到笔记",
+  subagent_type: "general-purpose",
+  run_in_background: true,
+  prompt: "请将以下内容记录到 docs/... 文件中：[具体内容]"
+})
+```
+
+### 主线对话原则
+- ✅ 主线对话只关注当前编码任务
+- ✅ 简短确认"已在后台记录"即可
+- ❌ 不要在主线对话中粘贴长篇笔记内容
+- ❌ 不要让用户等待笔记写入完成
 
 ---
 
