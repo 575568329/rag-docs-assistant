@@ -5,6 +5,7 @@ import GraphCanvas from './GraphCanvas'
 import GraphSearch from './GraphSearch'
 import NodeDetail from './NodeDetail'
 import { EntityType } from '@/lib/graph-store'
+import { apiPath } from '@/lib/api'
 
 export interface GraphPageProps {
   kbId?: string | null
@@ -58,7 +59,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
     }
     // 获取知识库名称（用于状态栏展示）
     if (kbId) {
-      fetch('/api/kb')
+      fetch(apiPath('/api/kb'))
         .then(res => res.json())
         .then((list: { id: string; name: string }[]) => {
           const match = list.find(kb => kb.id === kbId)
@@ -71,7 +72,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
     // 加载已收藏节点 ID
     const params = new URLSearchParams()
     if (kbId) params.set('kbId', kbId)
-    fetch(`/api/graph/favorites?${params}`)
+    fetch(apiPath(`/api/graph/favorites?${params}`))
       .then(res => res.json())
       .then((data: { nodeId: string }[]) => {
         setFavoritedNodes(new Set(data.map(f => f.nodeId)))
@@ -85,7 +86,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
       const params = new URLSearchParams({ mode: 'overview' })
       if (kbId) params.append('kbId', kbId)
 
-      const response = await fetch(`/api/graph?${params}`)
+      const response = await fetch(apiPath(`/api/graph?${params}`))
       if (!response.ok) throw new Error('加载概览失败')
 
       const data = await response.json()
@@ -116,7 +117,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
       const params = new URLSearchParams({ query, limit: '20' })
       if (kbId) params.append('kbId', kbId)
 
-      const response = await fetch(`/api/graph/search?${params}`)
+      const response = await fetch(apiPath(`/api/graph/search?${params}`))
       if (!response.ok) throw new Error('搜索失败')
 
       const data = await response.json()
@@ -135,7 +136,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
       const params = new URLSearchParams({ nodeId, depth: String(depth) })
       if (kbId) params.append('kbId', kbId)
 
-      const response = await fetch(`/api/graph?${params}`)
+      const response = await fetch(apiPath(`/api/graph?${params}`))
       if (!response.ok) throw new Error('加载图谱失败')
 
       const data = await response.json()
@@ -173,7 +174,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
     const params = new URLSearchParams({ nodeId: node.id, depth: '1' })
     if (kbId) params.append('kbId', kbId)
 
-    const response = await fetch(`/api/graph?${params}`)
+    const response = await fetch(apiPath(`/api/graph?${params}`))
     if (response.ok) {
       const data = await response.json()
       setSelectedNodeEdges(data.edges || [])
@@ -205,7 +206,7 @@ export default function GraphPage({ kbId, focusEntityId }: GraphPageProps) {
   const handleFavorite = useCallback(async (nodeId: string, nodeLabel: string, nodeType: string) => {
     if (favoritedNodes.has(nodeId)) return
     try {
-      const res = await fetch('/api/graph/favorites', {
+      const res = await fetch(apiPath('/api/graph/favorites'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeId, nodeLabel, nodeType, kbId: kbId || null }),

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { KnowledgeBase, Document } from '@/lib/types'
 import Toast from '@/components/Toast'
+import { apiPath } from '@/lib/api'
 
 interface KbCardProps {
   kb: KnowledgeBase
@@ -82,7 +83,7 @@ export default function KbCard({
     : new Date(kb.createdAt).toLocaleString('zh-CN')
   const hasLoadedDocs = docs.length > 0 || kb.docCount === 0
   const totalChunks = docs.reduce((sum, doc) => sum + doc.chunkCount, 0)
-  const getDownloadUrl = (doc: Document) => `/api/kb/${encodeURIComponent(kb.id)}/docs/${encodeURIComponent(doc.id)}/download`
+  const getDownloadUrl = (doc: Document) => apiPath(`/api/kb/${encodeURIComponent(kb.id)}/docs/${encodeURIComponent(doc.id)}/download`)
 
   return (
     <div

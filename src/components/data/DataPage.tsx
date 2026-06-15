@@ -6,6 +6,7 @@ import type { KnowledgeBase, Document } from '@/lib/types'
 import KbCard from './KbCard'
 import CreateKbDialog from './CreateKbDialog'
 import Toast from '@/components/Toast'
+import { apiPath } from '@/lib/api'
 
 interface DataPageProps {
   kbId?: string | null
@@ -22,7 +23,7 @@ export default function DataPage({ kbId }: DataPageProps) {
 
   const fetchKbs = async () => {
     try {
-      const res = await fetch('/api/kb')
+      const res = await fetch(apiPath('/api/kb'))
       if (!res.ok) throw new Error('获取知识库列表失败')
       const data = await res.json()
       setKbs(data)
@@ -33,7 +34,7 @@ export default function DataPage({ kbId }: DataPageProps) {
 
   const fetchDocs = async (kbId: string) => {
     try {
-      const res = await fetch(`/api/kb/${kbId}/docs`)
+      const res = await fetch(apiPath(`/api/kb/${kbId}/docs`))
       if (!res.ok) throw new Error('获取文档列表失败')
       const data = await res.json()
       setDocsMap((prev) => ({ ...prev, [kbId]: data }))
@@ -44,7 +45,7 @@ export default function DataPage({ kbId }: DataPageProps) {
 
   const handleCreateKb = async (name: string, description: string) => {
     try {
-      const res = await fetch('/api/kb', {
+      const res = await fetch(apiPath('/api/kb'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description }),
@@ -66,7 +67,7 @@ export default function DataPage({ kbId }: DataPageProps) {
   const handleDeleteKb = async (targetKbId: string) => {
     if (!confirm('确定要删除这个知识库吗？')) return
     try {
-      const res = await fetch(`/api/kb/${targetKbId}`, { method: 'DELETE' })
+      const res = await fetch(apiPath(`/api/kb/${targetKbId}`), { method: 'DELETE' })
       if (!res.ok) throw new Error('删除知识库失败')
       await fetchKbs()
       window.dispatchEvent(new Event('knowledge-bases-changed'))
@@ -123,14 +124,14 @@ export default function DataPage({ kbId }: DataPageProps) {
       })
     })
 
-    xhr.open('POST', `/api/kb/${kbId}/upload`)
+    xhr.open('POST', apiPath(`/api/kb/${kbId}/upload`))
     xhr.send(formData)
   }
 
   const handleDeleteDoc = async (kbId: string, docId: string) => {
     if (!confirm('确定要删除这个文档吗？')) return
     try {
-      const res = await fetch(`/api/kb/${kbId}/docs`, {
+      const res = await fetch(apiPath(`/api/kb/${kbId}/docs`), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ docId }),

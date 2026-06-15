@@ -6,7 +6,7 @@
  */
 
 import { generateObject } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createZhipu } from 'zhipu-ai-provider'
 import { z } from 'zod'
 import type { EntityType, RelationType } from './graph-store'
 
@@ -56,9 +56,8 @@ const extractionResultSchema = z.object({
   relations: z.array(relationSchema).describe('关系列表'),
 })
 
-/** 智谱 AI 客户端（OpenAI 兼容） */
-const openai = createOpenAI({
-  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+/** 智谱 AI 客户端（官方社区 provider，正确请求 /chat/completions） */
+const zhipu = createZhipu({
   apiKey: process.env.ZHIPU_API_KEY ?? '',
 })
 
@@ -70,7 +69,7 @@ const openai = createOpenAI({
 export async function extractEntities(text: string, kbId: string): Promise<ExtractionResult> {
   try {
     const result = await generateObject({
-      model: openai('glm-4-flash'),
+      model: zhipu('glm-4-flash'),
       schema: extractionResultSchema,
       prompt: `从以下文本中提取实体和关系。
 

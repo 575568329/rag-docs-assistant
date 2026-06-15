@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { getEntityConfig } from '@/lib/ui-constants'
+import { apiPath } from '@/lib/api'
 
 interface KnowledgeBase {
   id: string
@@ -61,7 +62,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   const activePage = pathname.split('/').pop() || 'chat'
 
   const fetchKnowledgeBases = useCallback(() => {
-    return fetch('/api/kb')
+    return fetch(apiPath('/api/kb'))
       .then(res => {
         if (!res.ok) throw new Error('获取知识库列表失败')
         return res.json()
@@ -84,7 +85,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
     if (activePage !== 'chat') return
     const params = new URLSearchParams()
     if (activeKbId) params.set('kbId', activeKbId)
-    fetch(`/api/chat/history?${params}`)
+    fetch(apiPath(`/api/chat/history?${params}`))
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setConversations(data) })
       .catch(err => console.error('获取对话历史失败:', err))
@@ -95,7 +96,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
     if (activePage !== 'graph') return
     const params = new URLSearchParams()
     if (activeKbId) params.set('kbId', activeKbId)
-    fetch(`/api/graph/favorites?${params}`)
+    fetch(apiPath(`/api/graph/favorites?${params}`))
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setFavorites(data) })
       .catch(err => console.error('获取收藏列表失败:', err))
@@ -121,7 +122,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   const handleNewChat = useCallback(async () => {
     const title = '新对话 ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     try {
-      const res = await fetch('/api/chat/history', {
+      const res = await fetch(apiPath('/api/chat/history'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, kbId: activeKbId || null }),
@@ -139,14 +140,14 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
 
   const handleDeleteConv = useCallback(async (convId: string) => {
     try {
-      await fetch(`/api/chat/history?convId=${convId}`, { method: 'DELETE' })
+      await fetch(apiPath(`/api/chat/history?convId=${convId}`), { method: 'DELETE' })
       setConversations(prev => prev.filter(c => c.id !== convId))
     } catch { /* ignore */ }
   }, [])
 
   const handleRemoveFav = useCallback(async (favId: string) => {
     try {
-      await fetch(`/api/graph/favorites?favId=${favId}`, { method: 'DELETE' })
+      await fetch(apiPath(`/api/graph/favorites?favId=${favId}`), { method: 'DELETE' })
       setFavorites(prev => prev.filter(f => f.id !== favId))
     } catch { /* ignore */ }
   }, [])

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { getEntityConfig } from '@/lib/ui-constants'
+import { apiPath } from '@/lib/api'
 
 interface NodeDetailProps {
   node: { id: string; label: string; type: string; properties?: Record<string, string | number | boolean> }
@@ -45,7 +46,7 @@ export default function NodeDetail({ node, edges, onExpand, onClose, onFavorite,
             )}
             {canDownload && (
               <a
-                href={`/api/kb/${encodeURIComponent(kbId)}/docs/${encodeURIComponent(docId)}/download`}
+                href={apiPath(`/api/kb/${encodeURIComponent(kbId)}/docs/${encodeURIComponent(docId)}/download`)}
                 className="p-2 rounded-lg transition-colors text-gray-400 hover:bg-blue-50 hover:text-blue-600"
                 title="下载文件"
               >

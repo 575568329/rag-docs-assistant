@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { SourceRef } from '@/lib/types'
+import { apiPath } from '@/lib/api'
 
 interface SourceCardProps {
   sources: SourceRef[]
@@ -97,7 +98,7 @@ export default function SourceCard({ sources, expanded: initialExpanded = false 
               </div>
               {source.kbId && source.docId && (
                 <a
-                  href={`/api/kb/${encodeURIComponent(source.kbId)}/docs/${encodeURIComponent(source.docId)}/download`}
+                  href={apiPath(`/api/kb/${encodeURIComponent(source.kbId)}/docs/${encodeURIComponent(source.docId)}/download`)}
                   className="flex-shrink-0 ml-3 p-1 text-gray-400 hover:text-blue-600 rounded transition-colors"
                   title="下载文件"
                 >

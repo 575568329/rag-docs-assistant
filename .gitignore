@@ -41,8 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 # project specific
-data/
-uploads/
+/data/
+/uploads/
 docs/
 !src/app/api/kb/\[id\]/docs/
 !src/app/api/kb/\[id\]/docs/**

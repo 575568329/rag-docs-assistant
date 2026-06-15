@@ -7,6 +7,7 @@ import Markdown from 'react-markdown'
 import type { SourceRef } from '@/lib/types'
 import SourceCard from './SourceCard'
 import EntityTags from './EntityTags'
+import { apiPath } from '@/lib/api'
 
 /** 自定义消息元数据 */
 type ChatMetadata = {
@@ -41,6 +42,7 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
   const { messages, sendMessage, status, stop, regenerate } = useChat<ChatUIMessage>({
     id: kbId || 'default',
     transport: new DefaultChatTransport({
+      api: apiPath('/api/chat'),
       body: { kbId: kbId || '' }
     })
   })
@@ -49,7 +51,7 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
 
   /** 获取知识库列表用于底部摘要展示 */
   useEffect(() => {
-    fetch('/api/kb')
+    fetch(apiPath('/api/kb'))
       .then(res => res.json())
       .then((list: KbSummary[]) => {
         const match = kbId ? list.find(kb => kb.id === kbId) : null
