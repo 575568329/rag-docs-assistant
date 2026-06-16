@@ -18,8 +18,15 @@ type ChatMetadata = {
 /** 自定义 UIMessage 类型 */
 type ChatUIMessage = UIMessage<ChatMetadata>
 
+interface PersistedConversationMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  metadata?: ChatMetadata
+}
 interface ChatPageProps {
   kbId: string | null
+  conversationId?: string | null
   onBack?: () => void
 }
 
@@ -38,17 +45,40 @@ const EXAMPLE_QUESTIONS = [
   '有哪些常见的设计模式？'
 ]
 
-export default function ChatPage({ kbId, onBack }: ChatPageProps) {
-  const { messages, sendMessage, status, stop, regenerate } = useChat<ChatUIMessage>({
-    id: kbId || 'default',
+export default function ChatPage({ kbId, conversationId, onBack }: ChatPageProps) {
+  const { messages, setMessages, sendMessage, status, stop, regenerate } = useChat<ChatUIMessage>({
+    id: conversationId || kbId || 'default',
     transport: new DefaultChatTransport({
       api: apiPath('/api/chat'),
-      body: { kbId: kbId || '' }
+      body: { kbId: kbId || '', conversationId: conversationId || undefined }
     })
   })
 
   const [kbSummary, setKbSummary] = useState<KbSummary | null>(null)
 
+  /** 加载历史对话消息 */
+  useEffect(() => {
+    if (!conversationId) {
+      setMessages([])
+      return
+    }
+
+    fetch(`/api/chat/history?convId=${encodeURIComponent(conversationId)}`)
+      .then(res => {
+        if (!res.ok) throw new Error('获取历史消息失败')
+        return res.json()
+      })
+      .then((data: { messages?: PersistedConversationMessage[] }) => {
+        const restoredMessages: ChatUIMessage[] = (data.messages || []).map(message => ({
+          id: message.id,
+          role: message.role,
+          metadata: message.metadata,
+          parts: [{ type: 'text', text: message.content }],
+        }))
+        setMessages(restoredMessages)
+      })
+      .catch(() => setMessages([]))
+  }, [conversationId, setMessages])
   /** 获取知识库列表用于底部摘要展示 */
   useEffect(() => {
     fetch(apiPath('/api/kb'))
@@ -255,3 +285,4 @@ export default function ChatPage({ kbId, onBack }: ChatPageProps) {
     </div>
   )
 }
+
