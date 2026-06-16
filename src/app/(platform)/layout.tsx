@@ -53,6 +53,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeKbId = searchParams.get('kbId')
+  const activeConversationId = searchParams.get('convId')
 
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -103,8 +104,9 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   }, [activePage, activeKbId])
 
   const navigateTo = (page: string) => {
-    const params = activeKbId ? `?kbId=${activeKbId}` : ''
-    router.push(`/${page}${params}`)
+    const params = new URLSearchParams()
+    if (activeKbId) params.set('kbId', activeKbId)
+    router.push(`/${page}${params.toString() ? `?${params}` : ''}`)
     setSidebarOpen(false)
   }
 
@@ -128,22 +130,28 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ title, kbId: activeKbId || null }),
       })
       if (res.ok) {
-        const conv = await res.json()
+        const conv = await res.json() as Conversation
         setConversations(prev => [conv, ...prev])
-        // 刷新页面清空对话
-        window.location.reload()
+        const params = new URLSearchParams()
+        if (conv.kbId) params.set('kbId', conv.kbId)
+        params.set('convId', conv.id)
+        router.push(`/chat?${params}`)
       }
     } catch {
-      window.location.reload()
+      router.push('/chat')
     }
-  }, [activeKbId])
+  }, [activeKbId, router])
 
   const handleDeleteConv = useCallback(async (convId: string) => {
     try {
       await fetch(apiPath(`/api/chat/history?convId=${convId}`), { method: 'DELETE' })
       setConversations(prev => prev.filter(c => c.id !== convId))
+      if (activeConversationId === convId) {
+        const params = activeKbId ? `?kbId=${activeKbId}` : ''
+        router.push(`/chat${params}`)
+      }
     } catch { /* ignore */ }
-  }, [])
+  }, [activeConversationId, activeKbId, router])
 
   const handleRemoveFav = useCallback(async (favId: string) => {
     try {
@@ -267,7 +275,18 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
                   conversations.map(conv => (
                     <div key={conv.id} className="group flex items-center gap-1 mb-0.5">
                       <button
-                        className="flex-1 text-left px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-100 truncate transition-colors"
+                        onClick={() => {
+                          const params = new URLSearchParams()
+                          if (conv.kbId) params.set('kbId', conv.kbId)
+                          params.set('convId', conv.id)
+                          router.push(`/chat?${params}`)
+                          setSidebarOpen(false)
+                        }}
+                        className={`flex-1 text-left px-3 py-2 text-sm rounded-md truncate transition-colors ${
+                          activeConversationId === conv.id
+                            ? 'text-blue-600 bg-blue-50 font-medium'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
                       >
                         {conv.title}
                       </button>
@@ -339,3 +358,4 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
+

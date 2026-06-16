@@ -7,7 +7,8 @@ import ChatPage from '@/components/chat/ChatPage'
 function ChatContent() {
   const searchParams = useSearchParams()
   const kbId = searchParams.get('kbId')
-  return <ChatPage kbId={kbId} />
+  const conversationId = searchParams.get('convId')
+  return <ChatPage kbId={kbId} conversationId={conversationId} />
 }
 
 export default function ChatRoute() {

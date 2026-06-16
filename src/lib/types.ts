@@ -55,13 +55,24 @@ export interface SourceRef {
   score: number
 }
 
-/** 对话记录（摘要，不含完整消息） */
+/** 对话记录摘要 */
 export interface Conversation {
   id: string
   title: string
   kbId: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ConversationMessage {
+  id: string
+  conversationId: string
+  role: 'user' | 'assistant'
+  content: string
+  metadata?: {
+    sources?: SourceRef[]
+  }
+  createdAt: string
 }
 
 /** 图谱节点收藏 */
@@ -73,3 +84,4 @@ export interface Favorite {
   kbId: string | null
   createdAt: string
 }
+

@@ -6,7 +6,7 @@
  * 生产环境建议替换为数据库（SQLite / PostgreSQL）。
  */
 
-import type { KnowledgeBase, Document, Conversation, Favorite } from './types'
+import type { KnowledgeBase, Document, Conversation, ConversationMessage, Favorite, SourceRef } from './types'
 import fs from 'fs'
 import path from 'path'
 
@@ -18,23 +18,27 @@ interface DBData {
   knowledgeBases: KnowledgeBase[]
   documents: Document[]
   conversations: Conversation[]
+  conversationMessages: ConversationMessage[]
   favorites: Favorite[]
   knowledgeBaseId: number
   documentsId: number
   conversationsId: number
+  conversationMessagesId: number
   favoritesId: number
 }
 
 /** 从文件读取数据，文件不存在则返回初始结构 */
 function loadDB(): DBData {
   if (!fs.existsSync(DB_FILE)) {
-    return { knowledgeBases: [], documents: [], conversations: [], favorites: [], knowledgeBaseId: 1, documentsId: 0, conversationsId: 0, favoritesId: 0 }
+    return { knowledgeBases: [], documents: [], conversations: [], conversationMessages: [], favorites: [], knowledgeBaseId: 1, documentsId: 0, conversationsId: 0, conversationMessagesId: 0, favoritesId: 0 }
   }
   const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))
   // 向后兼容：旧数据没有新字段
   if (!data.conversations) data.conversations = []
+  if (!data.conversationMessages) data.conversationMessages = []
   if (!data.favorites) data.favorites = []
   if (!data.conversationsId) data.conversationsId = 0
+  if (!data.conversationMessagesId) data.conversationMessagesId = 0
   if (!data.favoritesId) data.favoritesId = 0
   return data
 }
@@ -89,6 +93,9 @@ export const db = {
     const data = loadDB()
     data.knowledgeBases = data.knowledgeBases.filter(kb => kb.id !== id)
     data.documents = data.documents.filter(doc => doc.kbId !== id)
+    const removedConversationIds = new Set(data.conversations.filter(conv => conv.kbId === id).map(conv => conv.id))
+    data.conversations = data.conversations.filter(conv => conv.kbId !== id)
+    data.conversationMessages = data.conversationMessages.filter(message => !removedConversationIds.has(message.conversationId))
     saveDB(data)
   },
 
@@ -178,10 +185,52 @@ export const db = {
     return conv
   },
 
+  /** 获取指定对话 */
+  getConversation(convId: string): Conversation | null {
+    const data = loadDB()
+    return data.conversations.find(c => c.id === convId) ?? null
+  },
+
+  /** 获取指定对话下的完整消息 */
+  listConversationMessages(convId: string): ConversationMessage[] {
+    const data = loadDB()
+    return data.conversationMessages
+      .filter(message => message.conversationId === convId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  },
+
+  /** 追加单条对话消息，并刷新对话更新时间 */
+  addConversationMessage(
+    conversationId: string,
+    role: ConversationMessage['role'],
+    content: string,
+    metadata?: { sources?: SourceRef[] }
+  ): ConversationMessage | null {
+    const data = loadDB()
+    const conv = data.conversations.find(c => c.id === conversationId)
+    if (!conv) return null
+
+    const now = new Date().toISOString()
+    const message: ConversationMessage = {
+      id: 'msg_' + (++data.conversationMessagesId),
+      conversationId,
+      role,
+      content,
+      metadata,
+      createdAt: now,
+    }
+
+    data.conversationMessages.push(message)
+    conv.updatedAt = now
+    saveDB(data)
+    return message
+  },
+
   /** 删除对话 */
   deleteConversation(convId: string): void {
     const data = loadDB()
     data.conversations = data.conversations.filter(c => c.id !== convId)
+    data.conversationMessages = data.conversationMessages.filter(message => message.conversationId !== convId)
     saveDB(data)
   },
 
@@ -221,3 +270,4 @@ export const db = {
     saveDB(data)
   },
 }
+
